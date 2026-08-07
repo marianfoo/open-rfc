@@ -93,3 +93,44 @@ does not. Control-tested by planting drift and confirming it fails.
 0.2.1's version bump merged before this automation existed, so no release exists
 for it. It needs one manual release; from the next version on, merging the
 release pull request is the whole flow.
+
+---
+
+## Follow-on: the workflow was 542 lines and is now 51
+
+Once Release Please creates the release itself, `create-draft-release` is not
+merely unused — dispatching it would fail creating a tag that already exists. It
+was 475 of the file's 542 lines: input validation for four hand-entered values,
+candidate lineage checks, tag and draft creation, asset attachment and
+reverification.
+
+What is left is the whole job: on a push to main, offer the commits to Release
+Please. It opens or updates a release pull request, or does nothing because
+nothing releasable has landed. Doing nothing is the normal case and reports as a
+successful run rather than a skip.
+
+Also removed, because each of them made a run report something other than what
+was happening:
+
+- `vars.OPEN_RFC_RELEASE_PLEASE_ENABLED`, which made every run report `skipped`
+  when the variable was simply never set
+- `workflow_dispatch` and its four inputs, which existed only for the job that
+  is gone
+
+The `github.repository ==` guard stays. A fork inherits this workflow and would
+otherwise try to release from its own main against this repository's manifest.
+
+`test/public-release-workflows.test.mjs` lost 248 lines with it, including a
+150-line simulation that stubbed `git` and `gh` to prove the removed tag-creation
+logic could not be retargeted by an advancing main. It was a good test of code
+that no longer exists.
+
+### The parity test caught me inside a minute
+
+While control-testing it, I appended drift to the template, then ran
+`git checkout --` to undo it — which restored the *committed* 542-line file and
+silently discarded the reduction. The live copy still had it, so the two had
+diverged again. The parity test failed on the next run and named the file.
+
+That is the third instance of this drift in a day, and the first one caught
+automatically.

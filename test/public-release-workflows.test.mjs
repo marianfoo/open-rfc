@@ -319,229 +319,41 @@ test("trusted publishing builds the tag, publishes it, and re-checks the registr
   assert.doesNotMatch(publish.source, /npm publish --access|npm dist-tag|--tag\b|NPM_TOKEN/iu);
 });
 
-test("release creation reverifies the public-mode candidate bundle", () => {
-  assert.equal(
-    releasePlease.value.on.workflow_dispatch.inputs.candidate_kind.type,
-    "choice",
-  );
-  assert.deepEqual(
-    releasePlease.value.on.workflow_dispatch.inputs.candidate_kind.options,
-    ["initial-bootstrap", "release-please"],
-  );
-  assert.match(
-    releasePlease.value.jobs["prepare-release-pr"].if,
-    /vars\.OPEN_RFC_RELEASE_PLEASE_ENABLED == 'true'/u,
-  );
-  assert.match(
-    releasePlease.source,
-    /git fetch --force --no-tags origin[\s\S]{0,100}"\+\$\{tag_ref\}:\$\{tag_ref\}"/u,
-  );
-  assert.match(
-    releasePlease.source,
-    /verify_candidate_bundle\.mjs "\$artifact_directory"[\s\S]{0,220}--commit "\$CANDIDATE_SHA"[\s\S]{0,100}--post-release-tag "\$expected_tag"/u,
-  );
-  assert.match(
-    releasePlease.source,
-    /git show-ref --verify --quiet "refs\/tags\/\$\{expected_tag\}"[\s\S]{0,320}verify_candidate_bundle\.mjs "\$artifact_directory"[\s\S]{0,220}--commit "\$CANDIDATE_SHA"/u,
-  );
-  assert.equal(
-    releasePlease.value.on.workflow_dispatch.inputs.recover_existing_draft.type,
-    "boolean",
-  );
+test("release-please only opens the release pull request", () => {
+  // The workflow was 542 lines. 475 of them were a manual create-draft-release
+  // job that built a tag, a draft release and its assets from four
+  // hand-entered inputs. Release Please now creates the release itself, so that
+  // job was not merely unused: dispatching it would have failed creating a tag
+  // that already exists. It is gone, and this test pins the shape that is left.
+  assert.deepEqual(Object.keys(releasePlease.value.on), ["push"]);
+  assert.deepEqual(releasePlease.value.on.push.branches, ["main"]);
+  assert.deepEqual(Object.keys(releasePlease.value.jobs), ["release-please"]);
   assert.equal(releasePlease.value.concurrency.group, "release-please-main");
-  assert.match(releasePlease.source, /unique merged candidate Release Please PR/u);
-  assert.match(releasePlease.source, /unique merged pending Release Please PR/u);
-  assert.match(releasePlease.source, /initial bootstrap candidate must be the only commit/iu);
-  assert.match(releasePlease.source, /manifest\.version !== "0\.2\.0"/u);
-  assert.match(releasePlease.source, /OPEN_RFC_PACKAGE_VERSION/u);
-  assert.match(releasePlease.source, /changelogHeading\.test\(changelog\)/u);
-  assert.match(releasePlease.source, /Initial bootstrap repository already contains a tag/u);
-  assert.match(releasePlease.source, /Initial bootstrap repository already contains a GitHub Release/u);
-  assert.match(releasePlease.source, /must expose only the exact main branch/u);
-  assert.match(releasePlease.source, /Candidate \$\{CANDIDATE_KIND\} \$\{CANDIDATE_SHA\}/u);
-  assert.match(releasePlease.source, /\.display_title == \$title/u);
-  assert.match(releasePlease.source, /Draft recovery requires the exact candidate tag/u);
-  assert.match(releasePlease.source, /Recovery requires the exact candidate tag created by the first attempt/u);
+  assert.equal(releasePlease.value.concurrency["cancel-in-progress"], false);
+  assert.deepEqual(releasePlease.value.permissions, {});
+  const job = releasePlease.value.jobs["release-please"];
+  assert.deepEqual(job.permissions, {
+    contents: "write",
+    "pull-requests": "write",
+  });
+  assert.equal(job["runs-on"], "ubuntu-24.04");
+  // A fork inherits this workflow and would otherwise release from its own main
+  // against this repository's manifest.
+  assert.match(job.if, /github\.repository == 'marianfoo\/open-rfc'/u);
   assert.equal(
     (releasePlease.source.match(/googleapis\/release-please-action@/gu) ?? []).length,
     1,
   );
+  // skip-github-release would stop the release being created, and the release
+  // is what triggers npm-publish.yml. Its absence is the automation.
+  assert.doesNotMatch(releasePlease.source, /skip-github-release/u);
   assert.doesNotMatch(releasePlease.source, /skip-github-pull-request/u);
-  assert.match(
-    releasePlease.source,
-    /--method POST[\s\S]{0,180}"repos\/\$\{GITHUB_REPOSITORY\}\/git\/refs"/u,
-  );
-  assert.match(releasePlease.source, /target_commitish: \$sha/u);
-  assert.ok(
-    releasePlease.source.indexOf('{labels: ["autorelease: tagged"]}')
-      < releasePlease.source.indexOf("labels/autorelease%3A%20pending"),
-    "tagged must be added before pending is removed so recovery always retains a release label",
-  );
-  assert.match(releasePlease.source, /--pattern 'release-artifact-gate\.v1\.json'/u);
-  assert.match(releasePlease.source, /--pattern 'sbom\.spdx\.json'/u);
-  assert.match(releasePlease.source, /Draft release assets differ from the exact verified release set/u);
-  assert.match(
-    releasePlease.source,
-    /verify_candidate_bundle\.mjs "\$download_directory"[\s\S]{0,220}--commit "\$CANDIDATE_SHA"[\s\S]{0,100}--post-release-tag "\$EXPECTED_TAG"/u,
-  );
-  assert.equal(
-    (releasePlease.source.match(/--commit "\$CANDIDATE_SHA"/gu) ?? []).length,
-    3,
-  );
-  assert.equal(
-    (releasePlease.source.match(/node tools\/verify_candidate_bundle\.mjs/gu) ?? []).length,
-    3,
-  );
-  assert.doesNotMatch(releasePlease.source, /npm dist-tag|npm publish[^\n]*--tag|prerelease: true/iu);
+  // The gates that made every run report "skipped" or fail are gone.
+  assert.doesNotMatch(releasePlease.source, /OPEN_RFC_RELEASE_PLEASE_ENABLED/u);
+  // The comment explains what a token would buy; what must be gone is any use
+  // of it, because an unset secret is what made every run fail.
+  assert.doesNotMatch(releasePlease.source, /secrets\.RELEASE_PLEASE_TOKEN/u);
+  assert.doesNotMatch(releasePlease.source, /workflow_dispatch/u);
+  assert.doesNotMatch(releasePlease.source, /create-draft-release/u);
 });
 
-test("an advancing main cannot retarget the release mutation", async (t) => {
-  const temporary = await mkdtemp(join(tmpdir(), "open-rfc-release-workflow-"));
-  t.after(() => rm(temporary, { recursive: true, force: true }));
-  const bin = join(temporary, "bin");
-  await mkdir(bin);
-  const candidate = "a".repeat(40);
-  const advancedMain = "b".repeat(40);
-  const mainState = join(temporary, "main-state.txt");
-  const releasePayloadPath = join(temporary, "release-payload.json");
-  const tagPayloadPath = join(temporary, "tag-payload.json");
-  const releaseState = join(temporary, "release-state.json");
-  const tagState = join(temporary, "tag-state.json");
-  const operationLog = join(temporary, "operations.log");
-  await writeFile(
-    join(temporary, "CHANGELOG.md"),
-    "# Changelog\n\n## [0.2.0](https://example.invalid/v0.2.0) (2026-07-30)\n\n### Features\n\n* verified release\n",
-  );
-  const fakeGit = join(bin, "git");
-  await writeFile(fakeGit, `#!/usr/bin/env bash
-set -euo pipefail
-if [[ "$*" != "ls-remote origin refs/heads/main" ]]; then exit 2; fi
-printf '%s\\trefs/heads/main\\n' "$CANDIDATE_SHA"
-printf '%s\\n' "$ADVANCED_MAIN" > "$MAIN_STATE"
-`);
-  await chmod(fakeGit, 0o700);
-  const fakeGh = join(bin, "gh");
-  await writeFile(fakeGh, `#!/usr/bin/env node
-const fs = require("node:fs");
-const args = process.argv.slice(2);
-const endpoint = args.find((value) => value.startsWith("repos/"));
-const methodIndex = args.indexOf("--method");
-const method = methodIndex < 0 ? "GET" : args[methodIndex + 1];
-if (args[0] === "release" && args[1] === "view") {
-  if (!fs.existsSync(process.env.RELEASE_STATE)) process.exit(1);
-  const release = JSON.parse(fs.readFileSync(process.env.RELEASE_STATE, "utf8"));
-  process.stdout.write(JSON.stringify({
-    body: release.body,
-    isDraft: release.draft,
-    isPrerelease: release.prerelease,
-    name: release.name,
-    tagName: release.tag_name,
-  }));
-} else if (method === "GET" && endpoint.includes("/git/ref/tags/")) {
-  if (!fs.existsSync(process.env.TAG_STATE)) process.exit(1);
-  process.stdout.write(fs.readFileSync(process.env.TAG_STATE));
-} else if (method === "POST" && endpoint.endsWith("/git/refs")) {
-  const input = fs.readFileSync(0, "utf8");
-  fs.writeFileSync(process.env.TAG_PAYLOAD_PATH, input);
-  const payload = JSON.parse(input);
-  const state = { ref: payload.ref, object: { type: "commit", sha: payload.sha } };
-  fs.writeFileSync(process.env.TAG_STATE, JSON.stringify(state));
-  fs.appendFileSync(process.env.OPERATION_LOG, "tag\\n");
-  process.stdout.write(JSON.stringify(state));
-} else if (method === "POST" && endpoint.endsWith("/releases")) {
-  const input = fs.readFileSync(0, "utf8");
-  fs.writeFileSync(process.env.RELEASE_PAYLOAD_PATH, input);
-  const payload = JSON.parse(input);
-  fs.writeFileSync(process.env.RELEASE_STATE, JSON.stringify(payload));
-  // GitHub lazily creates tags for draft releases. This mock deliberately does
-  // not create one here; the workflow must have created the exact ref first.
-  fs.appendFileSync(process.env.OPERATION_LOG, "release\\n");
-  process.stdout.write(JSON.stringify({
-    draft: payload.draft,
-    tag_name: payload.tag_name,
-    target_commitish: payload.target_commitish,
-  }));
-} else {
-  process.stderr.write(JSON.stringify({ args, endpoint, method }));
-  process.exit(2);
-}
-`);
-  await chmod(fakeGh, 0o700);
-
-  const mutation = releasePlease.value.jobs["create-draft-release"].steps.find(
-    (step) => step.name === "Ensure the candidate-bound tag and draft GitHub Release",
-  );
-  assert.equal(typeof mutation?.run, "string");
-  const runMutation = (recoverExistingDraft) => execFileAsync("bash", ["-c", mutation.run], {
-    cwd: temporary,
-    env: {
-      ...process.env,
-      PATH: `${bin}:${process.env.PATH}`,
-      ADVANCED_MAIN: advancedMain,
-      CANDIDATE_SHA: candidate,
-      EXPECTED_TAG: "v0.2.0",
-      GH_TOKEN: "test-only-token",
-      GITHUB_REPOSITORY: "marianfoo/open-rfc",
-      MAIN_STATE: mainState,
-      OPERATION_LOG: operationLog,
-      RECOVER_EXISTING_DRAFT: recoverExistingDraft ? "true" : "false",
-      RELEASE_PAYLOAD_PATH: releasePayloadPath,
-      RELEASE_STATE: releaseState,
-      RUNNER_TEMP: temporary,
-      TAG_PAYLOAD_PATH: tagPayloadPath,
-      TAG_STATE: tagState,
-      VERSION: "0.2.0",
-    },
-    timeout: 30_000,
-  });
-  await runMutation(false);
-
-  assert.equal((await readFile(mainState, "utf8")).trim(), advancedMain);
-  assert.equal(await readFile(operationLog, "utf8"), "tag\nrelease\n");
-  const tagPayload = JSON.parse(await readFile(tagPayloadPath, "utf8"));
-  assert.equal(tagPayload.ref, "refs/tags/v0.2.0");
-  assert.equal(tagPayload.sha, candidate);
-  const releasePayload = JSON.parse(await readFile(releasePayloadPath, "utf8"));
-  assert.equal(releasePayload.tag_name, "v0.2.0");
-  assert.equal(releasePayload.target_commitish, candidate);
-  assert.equal(releasePayload.draft, true);
-  assert.equal(releasePayload.prerelease, false);
-  assert.equal(releasePayload.generate_release_notes, false);
-  assert.match(releasePayload.body, /verified release/u);
-
-  await rm(join(temporary, "open-rfc-release-notes.md"), { force: true });
-  await rm(releaseState, { force: true });
-  await writeFile(operationLog, "");
-  await runMutation(true);
-  assert.equal(await readFile(operationLog, "utf8"), "release\n");
-
-  await rm(join(temporary, "open-rfc-release-notes.md"), { force: true });
-  await rm(tagState, { force: true });
-  await writeFile(operationLog, "");
-  await assert.rejects(
-    runMutation(true),
-    /Recovery requires the exact candidate tag created by the first attempt/u,
-  );
-
-  await writeFile(tagState, JSON.stringify({
-    ref: "refs/tags/v0.2.0",
-    object: { type: "commit", sha: candidate },
-  }));
-  await writeFile(releaseState, JSON.stringify({
-    ...releasePayload,
-    body: "hostile replacement body\n",
-  }));
-  await rm(join(temporary, "open-rfc-release-notes.md"), { force: true });
-  await assert.rejects(
-    runMutation(true),
-    /Existing release is not the requested exact draft recovery target/u,
-  );
-
-  await rm(join(temporary, "open-rfc-release-notes.md"), { force: true });
-  await rm(tagState, { force: true });
-  await rm(releaseState, { force: true });
-  await assert.rejects(
-    runMutation(true),
-    /Recovery requires the exact candidate tag created by the first attempt/u,
-  );
-});
