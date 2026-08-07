@@ -4,6 +4,13 @@ All notable changes to `open-rfc` are recorded here. The project follows
 [Semantic Versioning](https://semver.org/) for the declared public surface once
 that surface is released.
 
+## [0.2.2](https://github.com/marianfoo/open-rfc/compare/v0.2.1...v0.2.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* **ci:** publish inside the release run instead of a second workflow ([#6](https://github.com/marianfoo/open-rfc/issues/6)) ([b964caa](https://github.com/marianfoo/open-rfc/commit/b964caa89230db377469bd9d38fe33db1d40ba9e))
+
 ## [0.2.1](https://github.com/marianfoo/open-rfc/compare/v0.2.0...v0.2.1) (2026-08-07)
 
 
