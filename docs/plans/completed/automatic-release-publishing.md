@@ -67,20 +67,36 @@ That was wrong and is corrected below: with Release Please creating the tag, a
 dispatch of that job would fail creating a tag that already exists, so it is a
 trap rather than a fallback. It is removed.
 
-## Second defect, found while doing this
+## Second defect, found while doing this — and its real fix
 
-The workflows exist twice — `.github/workflows/` runs, `release/templates/` is
-what a public export ships — and nothing kept them in step. They had already
-drifted twice in one day:
+The workflows existed twice: `.github/workflows/` runs, `release/templates/` was
+a second copy. Nothing kept them in step, and they had already drifted twice in
+one day — `ci.yml` gained a `push` trigger on the live side only, so the
+published repository ran CI on pull requests alone, and `release-please.yml`
+lost its token guard on the live side only.
 
-- `ci.yml` gained a `push` trigger on the live side only, so the published
-  repository ran CI on pull requests alone
-- `release-please.yml` lost its token guard on the live side only
+The first response was a parity test asserting the two copies stay byte-identical.
+It worked: it caught a third drift within a minute of being written, when a
+`git checkout --` during its own control test silently restored the committed
+copy and discarded a reduction.
 
-Both were invisible, because the live copy behaves correctly and the workflow
-tests read the template. `test/workflow-template-parity.test.mjs` now asserts
-the pairs are byte-identical and that neither side carries a workflow the other
-does not. Control-tested by planting drift and confirming it fails.
+But a test that two copies agree is a guard on a duplication that should not
+exist. `release/templates/` belongs to the private repository, where
+`.github/workflows/` holds the *private* CI and the templates hold the public
+versions the export copies in. That split is real there. Here there is no split:
+`.github/workflows/` **is** the public version. The directory was the export
+machinery shipped alongside its own output, and nothing in this repository read
+it except the tests themselves.
+
+So `release/templates/` is deleted, the parity test with it, and
+`public-release-workflows.test.mjs` now reads `.github/workflows/` — the files
+that actually run, which is what it should have asserted on from the start.
+Drift is now impossible rather than caught.
+
+One loose end: the private repository's export path policy still lists
+`release/` as public, so a full re-export would put the directory back. The
+public repository is maintained by pull request now and is unlikely to be
+re-exported wholesale, but the policy is the durable fix if it ever is.
 
 ## Verification
 

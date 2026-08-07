@@ -13,7 +13,7 @@ const execFileAsync = promisify(execFile);
 
 function workflow(name) {
   const source = readFileSync(
-    new URL(`../release/templates/${name}`, import.meta.url),
+    new URL(`../.github/workflows/${name}`, import.meta.url),
     "utf8",
   );
   const document = parseDocument(source, {
