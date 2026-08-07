@@ -62,8 +62,10 @@ publicly verifiable attestation binding the package to the exact commit and
 workflow that produced it. Anyone can check it with `npm audit signatures`. The
 attestation moves from a person to a machine-checkable one; it does not vanish.
 
-The `create-draft-release` job is left in place. It is `workflow_dispatch`-only
-so it cannot fire by accident, and it remains a recovery path.
+The `create-draft-release` job was initially left in place as a recovery path.
+That was wrong and is corrected below: with Release Please creating the tag, a
+dispatch of that job would fail creating a tag that already exists, so it is a
+trap rather than a fallback. It is removed.
 
 ## Second defect, found while doing this
 
