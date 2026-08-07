@@ -4,6 +4,13 @@ All notable changes to `open-rfc` are recorded here. The project follows
 [Semantic Versioning](https://semver.org/) for the declared public surface once
 that surface is released.
 
+## [0.2.1](https://github.com/marianfoo/open-rfc/compare/v0.2.0...v0.2.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **values:** accept zero-padded XML character references ([#2](https://github.com/marianfoo/open-rfc/issues/2)) ([f88d214](https://github.com/marianfoo/open-rfc/commit/f88d21414676173d7e8612bd6e80ca50ef70e1b3))
+
 ## [0.2.0]
 
 Initial public beta release.
