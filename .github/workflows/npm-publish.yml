@@ -1,0 +1,127 @@
+name: Publish npm package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    if: >-
+      ${{ github.repository == 'marianfoo/open-rfc' &&
+          github.event.repository.visibility == 'public' &&
+          !github.event.release.prerelease &&
+          github.event.release.target_commitish != '' }}
+    environment: npm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Install the exact verification toolchain
+        run: |
+          npm run --silent ci:install-pinned-npm
+          npm run --silent ci:record-npm-cli
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Download and verify the exact verified release set
+        id: artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v0\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release tag must be an exact stable v0.x.y tag." >&2
+            exit 1
+          fi
+          tag_ref="refs/tags/${RELEASE_TAG}"
+          git fetch --force --no-tags origin "+${tag_ref}:${tag_ref}"
+          if [[ "$(git cat-file -t "$tag_ref")" != "commit" ]]; then
+            echo "Release tag must be lightweight and point directly to a commit." >&2
+            exit 1
+          fi
+          CANDIDATE_SHA="$(git rev-parse --verify "$tag_ref")"
+          if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ||
+                "$(git rev-parse --verify HEAD)" != "$CANDIDATE_SHA" ]]; then
+            echo "Checked-out commit differs from the exact release tag target." >&2
+            exit 1
+          fi
+          export CANDIDATE_SHA
+          bundle="${RUNNER_TEMP}/open-rfc-release-bundle"
+          install -d -m 700 "$bundle"
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'open-rfc-*.tgz' \
+            --pattern 'release-artifact-gate.v1.json' \
+            --pattern 'sbom.spdx.json' \
+            --dir "$bundle"
+          node tools/verify_candidate_bundle.mjs "$bundle" \
+            --publication-mode public-license-preflight \
+            --commit "$CANDIDATE_SHA" \
+            --post-release-tag "$RELEASE_TAG"
+          artifact="$(node --input-type=module - "$bundle" "$RELEASE_TAG" <<'NODE'
+          import { readFileSync, readdirSync } from "node:fs";
+          import { join } from "node:path";
+          const [directory, tag] = process.argv.slice(2);
+          const manifest = JSON.parse(readFileSync("package.json", "utf8"));
+          const gate = JSON.parse(readFileSync(join(directory, "release-artifact-gate.v1.json"), "utf8"));
+          const tarballs = readdirSync(directory).filter((name) => name.endsWith(".tgz"));
+          if (manifest.private !== false || manifest.license !== "Apache-2.0") process.exit(1);
+          if (!/^0\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(manifest.version)) process.exit(1);
+          if (tag !== `v${manifest.version}` || tarballs.length !== 1) process.exit(1);
+          if (tarballs[0] !== `open-rfc-${manifest.version}.tgz`) process.exit(1);
+          if (gate.commit !== process.env.CANDIDATE_SHA || gate.artifact?.filename !== tarballs[0]) process.exit(1);
+          process.stdout.write(join(directory, tarballs[0]));
+          NODE
+          )"
+          printf 'path=%s\n' "$artifact" >> "$GITHUB_OUTPUT"
+      - name: Dry-run the exact tarball
+        env:
+          ARTIFACT: ${{ steps.artifact.outputs.path }}
+        run: npm publish "$ARTIFACT" --access public --dry-run --ignore-scripts
+      - name: Publish the exact tarball with npm trusted publishing
+        env:
+          ARTIFACT: ${{ steps.artifact.outputs.path }}
+        run: npm publish "$ARTIFACT" --access public --ignore-scripts --provenance
+      - name: Verify registry metadata and the downloaded tarball
+        env:
+          ARTIFACT: ${{ steps.artifact.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          expected_integrity="$(node --input-type=module - <<'NODE'
+          import { readFileSync } from "node:fs";
+          const gate = JSON.parse(readFileSync(process.env.ARTIFACT.replace(/open-rfc-[^/]+\.tgz$/u, "release-artifact-gate.v1.json"), "utf8"));
+          process.stdout.write(gate.artifact.integrity);
+          NODE
+          )"
+          observed_integrity="$(npm view "open-rfc@${version}" dist.integrity)"
+          observed_latest="$(npm view open-rfc dist-tags.latest)"
+          if [[ "$observed_integrity" != "$expected_integrity" ||
+                "$observed_latest" != "$version" ]]; then
+            echo "Published npm metadata differs from the verified release." >&2
+            exit 1
+          fi
+          download="${RUNNER_TEMP}/open-rfc-registry"
+          install -d -m 700 "$download"
+          npm pack "open-rfc@${version}" --ignore-scripts --pack-destination "$download" >/dev/null
+          registry=("$download"/open-rfc-*.tgz)
+          if [[ "${#registry[@]}" != "1" ||
+                "$(sha256sum "${registry[0]}" | awk '{print $1}')" !=
+                "$(sha256sum "$ARTIFACT" | awk '{print $1}')" ]]; then
+            echo "The registry tarball differs from the verified release asset." >&2
+            exit 1
+          fi
