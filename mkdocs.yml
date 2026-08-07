@@ -1,0 +1,93 @@
+site_name: open-rfc
+site_description: SDK-free SAP classic RFC client for Node.js
+
+docs_dir: docs_page
+site_dir: .site
+strict: true
+use_directory_urls: true
+
+theme:
+  name: material
+  font: false
+  custom_dir: docs_page/overrides
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - announce.dismiss
+    - content.code.copy
+    - navigation.expand
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+
+nav:
+  - Overview: index.md
+  - Getting started: getting-started.md
+  - Guides:
+      - Standalone client: standalone.md
+      - Replace node-rfc: node-rfc.md
+      - SAP CAP: cap.md
+  - Configuration: configuration.md
+  - Reference:
+      - API and ABAP values: api.md
+      - Connection routes: routes.md
+      - Safety and support limits: safety.md
+      - Troubleshooting: troubleshooting.md
+      - Operations: operations.md
+      - Project policies: policies.md
+      - Glossary: glossary.md
+  - Release status: status.md
+
+exclude_docs: |
+  overrides/
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  generator: false
+
+copyright: Independent project for SAP RFC interoperability. Not affiliated with or endorsed by SAP.
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    absolute_links: warn
+    unrecognized_links: warn
+    anchors: warn

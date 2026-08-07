@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-rfc.invalid/schemas/public-api-snapshot-v1.schema.json",
+  "title": "Emitted public declaration snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "module",
+    "packageContract",
+    "compiler",
+    "rootExportManifest",
+    "subpathExportManifests",
+    "declarationCount",
+    "declarations",
+    "aggregateSha256"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "module": { "const": "open-rfc" },
+    "packageContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "type",
+        "main",
+        "module",
+        "types",
+        "sideEffects",
+        "exports",
+        "files",
+        "engines"
+      ],
+      "properties": {
+        "name": { "const": "open-rfc" },
+        "version": { "type": "string", "minLength": 1 },
+        "type": { "const": "module" },
+        "main": { "type": "string", "minLength": 1 },
+        "module": { "type": "string", "minLength": 1 },
+        "types": { "type": "string", "minLength": 1 },
+        "sideEffects": { "const": false },
+        "exports": { "type": "object" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "engines": { "type": "object" }
+      }
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "typescript" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+" }
+      }
+    },
+    "rootExportManifest": { "$ref": "#/$defs/fileDigest" },
+    "subpathExportManifests": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "$ref": "#/$defs/fileDigest" }
+    },
+    "declarationCount": { "type": "integer", "minimum": 1 },
+    "declarations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/fileDigest" }
+    },
+    "aggregateSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "fileDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

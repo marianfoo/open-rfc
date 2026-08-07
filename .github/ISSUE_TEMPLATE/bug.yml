@@ -1,0 +1,95 @@
+name: Bug report
+description: Report a defect in a published open-rfc release.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        `open-rfc` 0.x is beta software with no production SLA. Support applies
+        only to a published version inside the boundary in
+        [SUPPORT.md](https://github.com/marianfoo/open-rfc/blob/main/SUPPORT.md).
+
+        **Never paste credentials, hostnames, SAP system/client/user
+        identifiers, destination or bearer tokens, business parameters or
+        results, raw exception fields, RFC/SDK traces, packet captures, memory
+        dumps, `.env` files, or infrastructure inventories.** Maintainers will
+        never ask for those in a public issue. For a suspected vulnerability use
+        a private security advisory instead.
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction
+      options:
+        - label: This report contains no credentials, endpoints, system identities, business data, or raw traces.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version and tarball SHA-256
+      placeholder: "0.2.0 / sha256:..."
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Node.js version, OS, and architecture
+      placeholder: "Node 22.14.0, Ubuntu 24.04, x64"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: consumer
+    attributes:
+      label: Consumer shape
+      options:
+        - standalone open-rfc API
+        - archived node-rfc API (import change or npm alias)
+        - unchanged @sap/cds-rfc with npm override
+    validations:
+      required: true
+
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Generic backend profile
+      options:
+        - S/4HANA 2023
+        - NetWeaver 7.50
+        - other or unsupported
+    validations:
+      required: true
+
+  - type: dropdown
+    id: send-state
+    attributes:
+      label: Failure point
+      description: When known. This distinguishes a safe retry from an uncertain send.
+      options:
+        - before sending
+        - after a complete send
+        - unknown or partial send
+        - not applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: Expected and actual behavior
+      description: Include the public RFC error code/category and a safe correlation identifier.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Synthetic reproducer
+      description: >-
+        A minimal synthetic case or a redaction-validated evidence artifact. Do
+        not attach live system output.
+      render: javascript
+    validations:
+      required: true

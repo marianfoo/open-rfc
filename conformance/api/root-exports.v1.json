@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "module": "open-rfc",
+  "expectedExportCount": 31,
+  "exports": [
+    {
+      "name": "ABAPError",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc compatibility export for the direct alpha/beta surface",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "Client",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc compatibility export for the direct alpha/beta surface",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "EnumSncQop",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc configuration enum; importing it does not widen the supported SNC boundary",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "EnumTrace",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc configuration enum; importing it does not widen the supported trace boundary",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "NodeRFCLibraryError",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "NodeRFCLibraryErrorCode",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "NodeRfcError",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc compatibility export for the direct alpha/beta surface",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "Pool",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc compatibility export for the direct alpha/beta surface",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "RFCClient",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "RFCConnection",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "RFCError",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "RFCErrorCode",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "RFCUtility",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "RFCUtilityError",
+      "stability": "stable",
+      "reason": "Declared observed direct modern connector compatibility export",
+      "capabilityIds": [
+        "cap.api.modern-direct-cap-preview"
+      ]
+    },
+    {
+      "name": "RFC_DIAGNOSTIC_CATEGORIES",
+      "stability": "stable",
+      "reason": "Bounded structured diagnostic vocabulary for the public operations contract",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "RFC_DIAGNOSTIC_CODES",
+      "stability": "stable",
+      "reason": "Bounded structured diagnostic vocabulary for the public operations contract",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "RFC_DIAGNOSTIC_DISPOSITIONS",
+      "stability": "stable",
+      "reason": "Bounded structured diagnostic vocabulary for the public operations contract",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "RFC_DIAGNOSTIC_LEVELS",
+      "stability": "stable",
+      "reason": "Bounded structured diagnostic vocabulary for the public operations contract",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "RFC_DIAGNOSTIC_PHASES",
+      "stability": "stable",
+      "reason": "Bounded structured diagnostic vocabulary for the public operations contract",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "RFC_DIAGNOSTIC_STATES",
+      "stability": "stable",
+      "reason": "Bounded structured diagnostic vocabulary for the public operations contract",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "RFC_RC",
+      "stability": "stable",
+      "reason": "Archived node-rfc return-code enum alias over the existing RFCErrorCode runtime domain",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "RFC_UNIT_STATE",
+      "stability": "stable",
+      "reason": "Archived node-rfc transactional-unit state enum exposed for source compatibility without implementing unit protocols",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "RfcDiagnosticDispatcher",
+      "stability": "stable",
+      "reason": "Asynchronous bounded diagnostic dispatch with immutable monitoring and no inline observer I/O",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "RfcLoggingClass",
+      "stability": "stable",
+      "reason": "Archived node-rfc logging component enum exposed for declaration and source compatibility",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "RfcLoggingLevel",
+      "stability": "stable",
+      "reason": "Archived node-rfc logging level enum exposed for declaration and source compatibility",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "RfcParameterDirection",
+      "stability": "stable",
+      "reason": "Archived node-rfc parameter-direction enum exposed for metadata/source compatibility",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "cancelClient",
+      "stability": "stable",
+      "reason": "Declared node-rfc cancellation compatibility helper",
+      "capabilityIds": [
+        "cap.lifecycle.cancel-timeout"
+      ]
+    },
+    {
+      "name": "createBoundedRolloverDiagnosticSink",
+      "stability": "stable",
+      "reason": "Bounded JSONL rollover diagnostic sink for the public operations contract",
+      "capabilityIds": [
+        "cap.package.esm-commonjs",
+        "cap.conformance.fault-harness"
+      ]
+    },
+    {
+      "name": "environment",
+      "stability": "stable",
+      "reason": "Declared SDK-free node-rfc environment compatibility record",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "languageIsoToSap",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc compatibility export for the direct alpha/beta surface",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    },
+    {
+      "name": "languageSapToIso",
+      "stability": "stable",
+      "reason": "Declared archived node-rfc compatibility export for the direct alpha/beta surface",
+      "capabilityIds": [
+        "cap.api.node-rfc-direct-alpha"
+      ]
+    }
+  ]
+}

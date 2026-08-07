@@ -1,0 +1,25 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.envrc
+.direnv/
+.npmrc
+
+# Dependencies and generated output
+node_modules/
+dist/
+.site/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+*.log
+*.tgz
+
+# OS and editor state
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block site_meta %}
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'none'; frame-src 'none'; img-src 'self' data:; manifest-src 'self'; media-src 'self'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; worker-src 'self'">
+  {{ super() }}
+{% endblock %}
+
+{% block announce %}
+  <strong>0.x beta.</strong> Pin an exact version and review its support record before use; no production SLA is provided.
+{% endblock %}

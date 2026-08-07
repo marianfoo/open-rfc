@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "noUncheckedIndexedAccess": true,
+    "outDir": "dist/cjs",
+    "rootDir": "src",
+    "strict": true,
+    "target": "ES2022"
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
+}

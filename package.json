@@ -1,0 +1,83 @@
+{
+  "name": "open-rfc",
+  "version": "0.2.0",
+  "description": "SDK-free TypeScript client for SAP classic RFC with node-rfc compatibility facades",
+  "private": false,
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Marian Zeis",
+    "email": "marian@zeis.de"
+  },
+  "packageManager": "npm@11.19.0",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/src/index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/src/index.d.ts",
+        "default": "./dist/src/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      },
+      "default": "./dist/src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist/src",
+    "dist/cjs",
+    "README.md",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node tools/clean_build_output.mjs && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node tools/materialize_cjs_manifest.mjs && node tools/normalize_package_modes.mjs",
+    "prepack": "npm run build",
+    "ci:install-pinned-npm": "node tools/install_pinned_npm.mjs",
+    "ci:record-npm-cli": "node tools/record_pinned_npm_env.mjs",
+    "check:docs": "npm run build --silent && node tools/docs_check.mjs --public && node tools/documentation_examples.mjs",
+    "check:docs:public": "npm run build --silent && node tools/docs_check.mjs --public && node tools/documentation_examples.mjs",
+    "docs:site:build": "node tools/docs_site.mjs",
+    "docs:site:check": "node tools/docs_site.mjs --check",
+    "package:shape": "node tools/package_shape.mjs",
+    "lint": "oxlint src tools test",
+    "conformance:public": "npm run build --silent && node tools/public_conformance.mjs",
+    "test:public": "npm run build && node tools/public_conformance.mjs && node tools/public_test_suite.mjs",
+    "test": "npm run test:public"
+  },
+  "engines": {
+    "node": "^22.14.0 || ^24.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marianfoo/open-rfc.git"
+  },
+  "homepage": "https://marianfoo.github.io/open-rfc/",
+  "bugs": {
+    "url": "https://github.com/marianfoo/open-rfc/issues"
+  },
+  "keywords": [
+    "sap",
+    "rfc",
+    "node-rfc",
+    "sdk-free"
+  ],
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@types/node": "22.20.1",
+    "c8": "12.0.0",
+    "marked": "18.0.7",
+    "oxlint": "1.76.0",
+    "parse5": "8.0.1",
+    "publint": "0.3.22",
+    "spdx-exceptions": "2.5.0",
+    "spdx-license-ids": "3.0.23",
+    "typescript": "5.9.3",
+    "yaml": "2.9.0"
+  }
+}

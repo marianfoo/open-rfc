@@ -1,0 +1,27 @@
+:root {
+  --md-primary-fg-color: #006d5b;
+  --md-primary-fg-color--light: #278b77;
+  --md-primary-fg-color--dark: #004d40;
+  --md-accent-fg-color: #008c78;
+}
+
+.md-banner {
+  background: #fff3cb;
+  color: #473a08;
+}
+
+[data-md-color-scheme="slate"] .md-banner {
+  background: #3b310f;
+  color: #ffe8a3;
+}
+
+.md-typeset h1 {
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+
+.md-typeset .open-rfc-lead {
+  color: var(--md-default-fg-color--light);
+  font-size: 1.15rem;
+  max-width: 46rem;
+}

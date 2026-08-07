@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/marianfoo/open-rfc/security/advisories/new
+    about: >-
+      Report privately through a GitHub security advisory. Never open a public
+      issue for a suspected vulnerability.
+  - name: Support boundary and usage questions
+    url: https://github.com/marianfoo/open-rfc/blob/main/SUPPORT.md
+    about: >-
+      Check the supported platforms, SAP releases, and routes before reporting a
+      defect.

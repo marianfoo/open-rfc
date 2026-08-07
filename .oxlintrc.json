@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "oxc"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "allow",
+    "nursery": "allow",
+    "pedantic": "allow",
+    "perf": "allow",
+    "restriction": "allow",
+    "style": "allow"
+  },
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "rules": {
+    "eslint/no-control-regex": "allow",
+    "eslint/no-useless-escape": "allow",
+    "typescript/no-duplicate-enum-values": "allow",
+    "typescript/no-this-alias": "allow"
+  },
+  "overrides": [
+    {
+      "files": ["tools/**"],
+      "rules": {
+        "eslint/no-unused-vars": "allow"
+      }
+    },
+    {
+      "files": ["test/**"],
+      "rules": {
+        "eslint/no-unused-vars": "allow",
+        "eslint/no-unsafe-optional-chaining": "allow"
+      }
+    }
+  ]
+}

@@ -1,0 +1,405 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-rfc.invalid/schemas/release-artifact-gate-v1.schema.json",
+  "title": "open-rfc atomic release-set gate result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "commit",
+    "source",
+    "publication",
+    "history",
+    "package",
+    "artifact",
+    "releaseSet",
+    "checks",
+    "sbom"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "status": { "const": "passed" },
+    "commit": { "$ref": "#/$defs/commit" },
+    "source": { "$ref": "#/$defs/sourceEvidence" },
+    "publication": { "$ref": "#/$defs/publicationEvidence" },
+    "history": { "$ref": "#/$defs/historyEvidence" },
+    "package": { "$ref": "#/$defs/connectorPackage" },
+    "artifact": { "$ref": "#/$defs/artifactWithoutPackage" },
+    "releaseSet": { "$ref": "#/$defs/releaseSet" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowlist",
+        "cleanSourceSnapshots",
+        "deterministicPack",
+        "packageManifest",
+        "noNativeArtifacts",
+        "noSdkArtifacts",
+        "tarballSecretScan",
+        "trackedHistorySecretScan",
+        "trackedHistorySecretAdmissionPolicy",
+        "trackedPathHistoryScan",
+        "runtimeImportBoundary",
+        "sbom",
+        "atomicPublication",
+        "cooperativePublicationLock",
+        "privatePublicationParent",
+        "singlePackage",
+        "releaseSetInventory",
+        "atomicReleaseSet"
+      ],
+      "properties": {
+        "allowlist": { "const": true },
+        "cleanSourceSnapshots": { "const": true },
+        "deterministicPack": { "const": true },
+        "packageManifest": { "const": true },
+        "noNativeArtifacts": { "const": true },
+        "noSdkArtifacts": { "const": true },
+        "tarballSecretScan": { "const": true },
+        "trackedHistorySecretScan": { "const": true },
+        "trackedHistorySecretAdmissionPolicy": { "const": true },
+        "trackedPathHistoryScan": { "const": true },
+        "runtimeImportBoundary": { "const": true },
+        "sbom": { "const": true },
+        "atomicPublication": { "const": true },
+        "cooperativePublicationLock": { "const": true },
+        "privatePublicationParent": { "const": true },
+        "singlePackage": { "const": true },
+        "releaseSetInventory": { "const": true },
+        "atomicReleaseSet": { "const": true }
+      }
+    },
+    "sbom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filename",
+        "sha256",
+        "artifactSha256",
+        "releaseSetSha256",
+        "artifactSha256s"
+      ],
+      "properties": {
+        "filename": { "const": "sbom.spdx.json" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "artifactSha256": { "$ref": "#/$defs/sha256" },
+        "releaseSetSha256": { "$ref": "#/$defs/sha256" },
+        "artifactSha256s": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["connector"],
+          "properties": {
+            "connector": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "integrity": {
+      "type": "string",
+      "pattern": "^sha512-[A-Za-z0-9+/]+={0,2}$"
+    },
+    "runtimeScan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parser", "compilerVersion", "roots", "fileCount", "byteCount",
+        "importCount", "loaderCallCount", "sha256"
+      ],
+      "properties": {
+        "parser": { "const": "typescript-ast" },
+        "compilerVersion": { "const": "5.9.3" },
+        "roots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["src", "dist/src", "dist/cjs"] }
+        },
+        "fileCount": { "type": "integer", "minimum": 1 },
+        "byteCount": { "type": "integer", "minimum": 1 },
+        "importCount": { "type": "integer", "minimum": 0 },
+        "loaderCallCount": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sourceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "distEmptyBeforeBuild", "emittedRuntimeScan"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "tree": { "$ref": "#/$defs/commit" },
+        "distEmptyBeforeBuild": { "const": true },
+        "emittedRuntimeScan": { "$ref": "#/$defs/runtimeScan" }
+      }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tree", "repositoryInventory", "snapshotCount", "independentWorktrees",
+        "emptyDistBeforeEachBuild", "buildToolchain",
+        "runtimeImportBoundary", "snapshots"
+      ],
+      "properties": {
+        "tree": { "$ref": "#/$defs/commit" },
+        "repositoryInventory": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm", "refTipCount", "refTipInventorySha256",
+            "objectCount", "objectInventorySha256"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "git-ref-tips-and-reachable-objects-sha256-v1"
+            },
+            "refTipCount": { "type": "integer", "minimum": 1 },
+            "refTipInventorySha256": { "$ref": "#/$defs/sha256" },
+            "objectCount": { "type": "integer", "minimum": 1 },
+            "objectInventorySha256": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "snapshotCount": { "const": 2 },
+        "independentWorktrees": { "const": true },
+        "emptyDistBeforeEachBuild": { "const": true },
+        "buildToolchain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dependencyMode", "hermetic", "independentlyInstalledPerSnapshot",
+            "npmVersion"
+          ],
+          "properties": {
+            "dependencyMode": { "const": "shared-root-node-modules" },
+            "hermetic": { "const": false },
+            "independentlyInstalledPerSnapshot": { "const": false },
+            "npmVersion": { "const": "11.19.0" }
+          }
+        },
+        "runtimeImportBoundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "emitted"],
+          "properties": {
+            "source": { "$ref": "#/$defs/runtimeScan" },
+            "emitted": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": { "$ref": "#/$defs/runtimeScan" }
+            }
+          }
+        },
+        "snapshots": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/sourceSnapshot" }
+        }
+      }
+    },
+    "publicationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode", "atomicVisibility", "collisionControl", "releaseHostPolicy",
+        "parentPolicy", "trustBoundary"
+      ],
+      "properties": {
+        "mode": {
+          "enum": ["private", "public-license-preflight"]
+        },
+        "atomicVisibility": { "const": "sibling-directory-rename" },
+        "collisionControl": { "const": "cooperative-exclusive-lock" },
+        "releaseHostPolicy": { "const": "posix-only" },
+        "parentPolicy": { "const": "current-uid-mode-0700" },
+        "trustBoundary": {
+          "const": "POSIX current-UID mode-0700 parent with cooperative same-user writers; non-cooperative same-user mutation is out of scope"
+        }
+      }
+    },
+    "historyEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scanMode", "refScopePolicy", "inventoryAlgorithm", "refTipCount",
+        "refTipInventorySha256", "objectInventorySha256", "objectCount",
+        "objectBytes", "blobCount", "blobBytes", "limits", "secretAdmissions"
+      ],
+      "properties": {
+        "scanMode": {
+          "const": "bound-commit-and-ancestor-version-tags-reachable-unique-raw-objects"
+        },
+        "refScopePolicy": {
+          "const": "bound-commit-and-lightweight-stable-v0-tags-v1"
+        },
+        "inventoryAlgorithm": {
+          "const": "git-ref-tips-and-reachable-objects-sha256-v1"
+        },
+        "refTipCount": { "type": "integer", "minimum": 1 },
+        "refTipInventorySha256": { "$ref": "#/$defs/sha256" },
+        "objectInventorySha256": { "$ref": "#/$defs/sha256" },
+        "objectCount": { "type": "integer", "minimum": 1 },
+        "objectBytes": { "type": "integer", "minimum": 1 },
+        "blobCount": { "type": "integer", "minimum": 1 },
+        "blobBytes": { "type": "integer", "minimum": 1 },
+        "secretAdmissions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy", "ledgerPath", "ledgerSha256", "approvalStatus",
+            "admittedEntryCount", "admittedObjectCount", "reviewedBy",
+            "reviewedAt", "reviewReference"
+          ],
+          "properties": {
+            "policy": { "const": "exact-git-blob-path-pattern-v1" },
+            "ledgerPath": {
+              "const": "conformance/release-history-secret-admissions.v1.json"
+            },
+            "ledgerSha256": {
+              "type": ["string", "null"],
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "approvalStatus": { "enum": ["absent", "draft", "accepted"] },
+            "admittedEntryCount": { "type": "integer", "minimum": 0 },
+            "admittedObjectCount": { "type": "integer", "minimum": 0 },
+            "reviewedBy": { "type": ["string", "null"] },
+            "reviewedAt": { "type": ["string", "null"] },
+            "reviewReference": { "type": ["string", "null"] }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxObjectCount", "maxBlobCount", "maxObjectBytes",
+            "maxTotalObjectBytes"
+          ],
+          "properties": {
+            "maxObjectCount": { "const": 50000 },
+            "maxBlobCount": { "const": 25000 },
+            "maxObjectBytes": { "const": 8388608 },
+            "maxTotalObjectBytes": { "const": 201326592 }
+          }
+        }
+      }
+    },
+    "connectorPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "open-rfc" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "replacementPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "@sap/cds-rfc" },
+        "version": { "const": "2.2.1-open-rfc.0" }
+      }
+    },
+    "artifactWithoutPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filename",
+        "sha256",
+        "integrity",
+        "bytes",
+        "unpackedBytes",
+        "fileCount",
+        "archiveInventorySha256"
+      ],
+      "properties": {
+        "filename": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.tgz$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "integrity": { "$ref": "#/$defs/integrity" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "unpackedBytes": { "type": "integer", "minimum": 1 },
+        "fileCount": { "type": "integer", "minimum": 1 },
+        "archiveInventorySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "connectorArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package", "filename", "sha256", "integrity", "bytes",
+        "unpackedBytes", "fileCount", "archiveInventorySha256"
+      ],
+      "properties": {
+        "package": { "$ref": "#/$defs/connectorPackage" },
+        "filename": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.tgz$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "integrity": { "$ref": "#/$defs/integrity" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "unpackedBytes": { "type": "integer", "minimum": 1 },
+        "fileCount": { "type": "integer", "minimum": 1 },
+        "archiveInventorySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "replacementArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package", "filename", "sha256", "integrity", "bytes",
+        "unpackedBytes", "fileCount", "archiveInventorySha256"
+      ],
+      "properties": {
+        "package": { "$ref": "#/$defs/replacementPackage" },
+        "filename": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.tgz$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "integrity": { "$ref": "#/$defs/integrity" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "unpackedBytes": { "type": "integer", "minimum": 1 },
+        "fileCount": { "type": "integer", "minimum": 1 },
+        "archiveInventorySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "releaseSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "identityAlgorithm",
+        "sha256",
+        "candidateRole",
+        "artifacts",
+        "bindings"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "identityAlgorithm": { "const": "sha256-canonical-record-v1" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "candidateRole": { "const": "connector" },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["connector"],
+          "properties": {
+            "connector": { "$ref": "#/$defs/connectorArtifact" }
+          }
+        },
+        "bindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["npmPackage"],
+          "properties": {
+            "npmPackage": { "const": "open-rfc" }
+          }
+        }
+      }
+    }
+  }
+}

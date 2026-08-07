@@ -1,0 +1,70 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPEN_RFC_NPM_CLI_VERSION: 11.19.0
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Verify docs and build public Pages artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      OPEN_RFC_DOCS_PYTHON: python
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.14.0
+          package-manager-cache: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.13.14
+      - name: Pin npm CLI
+        run: npm run --silent ci:install-pinned-npm
+      - name: Install the locked Node.js documentation tools
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install the hash-pinned documentation toolchain
+        run: >-
+          python -m pip install
+          --disable-pip-version-check
+          --require-hashes
+          --only-binary=:all:
+          -r requirements-docs.txt
+      - run: python -m pip check
+      - run: npm run check:docs:public
+      - name: Verify two clean builds are byte-identical
+        run: node tools/docs_site.mjs --check
+      - name: Build the reviewed Pages artifact
+        run: node tools/docs_site.mjs
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: .site
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deploy reviewed Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

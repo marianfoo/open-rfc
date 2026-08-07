@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-08-01",
+  "policy": "exact-latest-compatible-version-and-registry-integrity-or-action-tag-commit",
+  "npm": {
+    "selectedMajor": 11,
+    "version": "11.19.0",
+    "integrity": "sha512-SDd/hHg3KqHE5Ht2NHWxNYNtqCQ2pXAPLl6OtQhPyED5PHsRfrOtO199MZTIG2cQoQ1ZRI9t28shrD+2cr3AAw==",
+    "engines": "^20.17.0 || >=22.9.0"
+  },
+  "consumerPins": {
+    "@sap/cds-rfc": {
+      "version": "2.2.1",
+      "integrity": "sha512-ZbezloeBeaiGo4DunwP2ws3J5HqHIEj+f4afJEwXGe0632hjJddDRi3D2rpMZmx749Ry0G4If2YzUk68uLH9zw=="
+    }
+  },
+  "developmentDependencies": {
+    "@arethetypeswrong/cli": { "version": "0.18.5", "integrity": "sha512-gM+8vRsQOD/Uc7EnBedUhkG5OCsDWE4uoak5QvomGpMpaky0Eh41p04nIMgrWb8EOmqZUJGc6zz9hsP6E56R7g==" },
+    "@types/node": { "version": "22.20.1", "integrity": "sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==" },
+    "c8": { "version": "12.0.0", "integrity": "sha512-4zpJvrd1nKWutnnKC2pXkFmb6iM1l+ffN//o1CzlTNwW7GSOs9a1xrLqkC48nU8oEkjmPZLPiwMsIaOvoF4Pqg==" },
+    "marked": { "version": "18.0.7", "integrity": "sha512-iDVQ5ldaiKXn6b2JroX5kgRfmwgqolW7NpaEzTl1k/2Zh1njIEN9yniyLV/mOvWwtsE8OGgkjsCYvijuPk1dtA==" },
+    "oxlint": { "version": "1.76.0", "integrity": "sha512-6QoFioEU4fNdiUx/2Eo6TRd6NG7H7njnRCz8rhB66cZmMHDTqcm1Rjvl8Wry+ZTQMBAmyb4Mlf62Mk5X+eHSOw==" },
+    "parse5": { "version": "8.0.1", "integrity": "sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==" },
+    "publint": { "version": "0.3.22", "integrity": "sha512-6Z/scsr5CA7APdwyF35EY88CqgDj1textWuY788DVTJYPCWVv/Wn9G6KmLnrVRnStgYcahqN4wCDLZGSbQJ69w==" },
+    "spdx-exceptions": { "version": "2.5.0", "integrity": "sha512-PiU42r+xO4UbUS1buo3LPJkjlO7430Xn5SVAhdpzzsPHsjbYVflnnFdATgabnLude+Cqu25p6N+g2lw/PFsa4w==" },
+    "spdx-license-ids": { "version": "3.0.23", "integrity": "sha512-CWLcCCH7VLu13TgOH+r8p1O/Znwhqv/dbb6lqWy67G+pT1kHmeD/+V36AVb/vq8QMIQwVShJ6Ssl5FPh0fuSdw==" },
+    "typescript": { "version": "5.9.3", "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==" },
+    "yaml": { "version": "2.9.0", "integrity": "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==" }
+  },
+  "documentationTypecheck": {
+    "typescript": {
+      "version": "5.9.3",
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "installedTree": { "algorithm": "relative-path-type-mode-content-sha256-v1", "entryCount": 147, "regularFileCount": 132, "regularFileBytes": 23625066, "inventorySha256": "sha256:c6bd94e8b8980364230a60748200919ea98c22631a2f84f5e511366eccf79685" }
+    },
+    "@types/node": {
+      "version": "22.20.1",
+      "integrity": "sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==",
+      "installedTree": { "algorithm": "relative-path-type-mode-content-sha256-v1", "entryCount": 83, "regularFileCount": 74, "regularFileBytes": 2438452, "inventorySha256": "sha256:38582d7a8440b4d21156fb007ae32e56d42a92693abc065ba6a595152b39250a" }
+    },
+    "undici-types": {
+      "version": "6.21.0",
+      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
+      "installedTree": { "algorithm": "relative-path-type-mode-content-sha256-v1", "entryCount": 41, "regularFileCount": 41, "regularFileBytes": 83680, "inventorySha256": "sha256:69b109c832c423cba31ddf76d022e32dd1ef59a994c594e5991f915c6a3895d4" }
+    }
+  },
+  "githubActions": {
+    "actions/checkout@7.0.1": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/dependency-review-action@5.0.0": "a1d282b36b6f3519aa1f3fc636f609c47dddb294",
+    "actions/deploy-pages@5.0.0": "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128",
+    "actions/setup-node@7.0.0": "820762786026740c76f36085b0efc47a31fe5020",
+    "actions/setup-python@7.0.0": "5fda3b95a4ea91299a34e894583c3862153e4b97",
+    "actions/upload-artifact@7.0.1": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "actions/upload-pages-artifact@5.0.0": "fc324d3547104276b827a68afc52ff2a11cc49c9",
+    "github/codeql-action@4.37.1": "bb16b9baa2ec4010b29f5c606d57d01190139edd",
+    "googleapis/release-please-action@5.0.0": "45996ed1f6d02564a971a2fa1b5860e934307cf7"
+  }
+}
