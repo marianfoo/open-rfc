@@ -29,7 +29,6 @@ function workflow(name) {
 const ci = workflow("ci.yml");
 const candidate = workflow("candidate.yml");
 const pages = workflow("pages.yml");
-const publish = workflow("npm-publish.yml");
 const releasePlease = workflow("release-please.yml");
 
 test("public CI is one Linux job with public-safe checks and one Node 24 smoke", () => {
@@ -267,67 +266,59 @@ test("public Pages deploys only deterministic public documentation", () => {
   );
 });
 
-test("trusted publishing builds the tag, publishes it, and re-checks the registry", () => {
-  assert.deepEqual(Object.keys(publish.value.on), ["release"]);
-  assert.equal(publish.value.jobs.publish.environment, "npm");
-  assert.equal(publish.value.jobs.publish["runs-on"], "ubuntu-24.04");
-  assert.deepEqual(publish.value.permissions, {
+test("publishing happens inside the release run, not a second workflow", () => {
+  // Release Please creates the release with GITHUB_TOKEN, and GitHub will not
+  // let a GITHUB_TOKEN event start another workflow. A separate workflow
+  // listening for `release: published` is therefore never woken — which is
+  // exactly what happened to v0.2.1. The publish job has to be part of this
+  // run, gated on the action's own output.
+  const publish = releasePlease.value.jobs["publish-npm"];
+  assert.equal(publish.needs, "release-please");
+  assert.match(publish.if, /release_created == 'true'/u);
+  assert.match(publish.if, /github\.event_name == 'workflow_dispatch'/u);
+  assert.equal(publish.environment, "npm");
+  assert.equal(publish["runs-on"], "ubuntu-24.04");
+  assert.deepEqual(publish.permissions, {
     contents: "read",
     "id-token": "write",
   });
-  // The tarball is built from the tag rather than downloaded from the release,
-  // so a release created by Release Please carries no assets and still
-  // publishes. What the release must still prove is that the tag names one
-  // commit, that the checkout is that commit, and that the tag names the
-  // version in the manifest.
-  assert.match(
-    publish.source,
-    /\^v0\\\.\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)\$/u,
+  assert.deepEqual(
+    releasePlease.value.jobs["release-please"].outputs,
+    {
+      release_created: "${{ steps.release.outputs.release_created }}",
+      tag_name: "${{ steps.release.outputs.tag_name }}",
+    },
   );
+  // The tag must name one commit, the checkout must be that commit, and the tag
+  // must name the version in the manifest.
+  assert.match(releasePlease.source, /git cat-file -t "\$tag_ref"/u);
+  assert.match(releasePlease.source, /RELEASE_TAG" != "v\$\{version\}"/u);
+  assert.match(releasePlease.source, /Checked-out commit differs from the exact release tag target/u);
+  assert.match(releasePlease.source, /npm pack --ignore-scripts --pack-destination/u);
   assert.match(
-    publish.source,
-    /git fetch --force --no-tags origin "\+\$\{tag_ref\}:\$\{tag_ref\}"/u,
-  );
-  assert.match(publish.source, /git cat-file -t "\$tag_ref"/u);
-  assert.match(
-    publish.source,
-    /CANDIDATE_SHA="\$\(git rev-parse --verify "\$tag_ref"\)"/u,
-  );
-  assert.match(
-    publish.source,
-    /git rev-parse --verify HEAD\)" != "\$CANDIDATE_SHA"/u,
-  );
-  assert.match(publish.source, /RELEASE_TAG" != "v\$\{version\}"/u);
-  assert.match(publish.source, /npm pack --ignore-scripts --pack-destination/u);
-  // The release assets are no longer the source of the published bytes, so the
-  // download and the bundle verifier must both be gone rather than merely
-  // unused. A leftover call would verify a bundle nothing produced.
-  assert.doesNotMatch(publish.source, /gh release download/u);
-  assert.doesNotMatch(publish.source, /verify_candidate_bundle\.mjs/u);
-  assert.match(
-    publish.source,
+    releasePlease.source,
     /npm publish "\$ARTIFACT" --access public --dry-run --ignore-scripts/u,
   );
   assert.match(
-    publish.source,
+    releasePlease.source,
     /npm publish "\$ARTIFACT" --access public --ignore-scripts --provenance/u,
   );
-  // Publishing is not the last word: the registry is re-read and the tarball it
-  // serves is compared byte for byte against the one that was published.
-  assert.match(publish.source, /npm pack "open-rfc@\$\{version\}"/u);
-  assert.match(publish.source, /The registry tarball differs from the verified release asset/u);
-  assert.doesNotMatch(publish.source, /npm publish --access|npm dist-tag|--tag\b|NPM_TOKEN/iu);
+  // Publishing is not the last word: the registry is re-read and its tarball
+  // compared byte for byte against what was published.
+  assert.match(releasePlease.source, /npm pack "open-rfc@\$\{version\}"/u);
+  assert.match(releasePlease.source, /The registry tarball differs from the verified release asset/u);
+  assert.doesNotMatch(releasePlease.source, /npm dist-tag|NPM_TOKEN/iu);
 });
 
-test("release-please only opens the release pull request", () => {
+test("release-please opens the release pull request and nothing else", () => {
   // The workflow was 542 lines. 475 of them were a manual create-draft-release
   // job that built a tag, a draft release and its assets from four
   // hand-entered inputs. Release Please now creates the release itself, so that
   // job was not merely unused: dispatching it would have failed creating a tag
   // that already exists. It is gone, and this test pins the shape that is left.
-  assert.deepEqual(Object.keys(releasePlease.value.on), ["push"]);
+  assert.deepEqual(Object.keys(releasePlease.value.on), ["push", "workflow_dispatch"]);
   assert.deepEqual(releasePlease.value.on.push.branches, ["main"]);
-  assert.deepEqual(Object.keys(releasePlease.value.jobs), ["release-please"]);
+  assert.deepEqual(Object.keys(releasePlease.value.jobs), ["release-please", "publish-npm"]);
   assert.equal(releasePlease.value.concurrency.group, "release-please-main");
   assert.equal(releasePlease.value.concurrency["cancel-in-progress"], false);
   assert.deepEqual(releasePlease.value.permissions, {});
@@ -353,7 +344,9 @@ test("release-please only opens the release pull request", () => {
   // The comment explains what a token would buy; what must be gone is any use
   // of it, because an unset secret is what made every run fail.
   assert.doesNotMatch(releasePlease.source, /secrets\.RELEASE_PLEASE_TOKEN/u);
-  assert.doesNotMatch(releasePlease.source, /workflow_dispatch/u);
   assert.doesNotMatch(releasePlease.source, /create-draft-release/u);
+  // The four hand-entered inputs the removed job took are gone; the manual
+  // trigger is a bare dispatch that publishes whatever the manifest names.
+  assert.equal(releasePlease.value.on.workflow_dispatch, null);
 });
 
