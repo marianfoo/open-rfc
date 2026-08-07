@@ -44,18 +44,24 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Require the Release Please app token
-        env:
-          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        shell: bash
-        run: |
-          if [[ -z "$RELEASE_PLEASE_TOKEN" ]]; then
-            echo "RELEASE_PLEASE_TOKEN is required so the release PR runs normal pull-request CI." >&2
-            exit 1
-          fi
+      # The release pull request is opened with GITHUB_TOKEN, and GitHub does
+      # not let a GITHUB_TOKEN event start another workflow run. So this one
+      # pull request arrives with NO CI run of its own, and a required status
+      # check would leave it permanently unmergeable rather than merely
+      # unverified.
+      #
+      # Read it before merging. Release Please rewrites the version in
+      # package.json, package-lock.json, .release-please-manifest.json,
+      # CHANGELOG.md, and src/compat/node-rfc-client.ts — that last one is a
+      # shipped source file, so the change does reach the published package.
+      # The contents are machine-generated from commits that were themselves
+      # verified, which is what makes an unchecked merge acceptable here.
+      #
+      # A GitHub App or PAT in RELEASE_PLEASE_TOKEN would restore CI on this
+      # pull request. That is the only thing it buys.
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           skip-github-release: "true"
