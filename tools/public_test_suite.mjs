@@ -18,6 +18,7 @@ export const PUBLIC_MJS_TESTS = Object.freeze([
   "test/public-release-workflows.test.mjs",
   "test/public-support-links.test.mjs",
   "test/tool-bounds.test.mjs",
+  "test/workflow-template-parity.test.mjs",
   "test/trusted-git.test.mjs",
 ]);
 

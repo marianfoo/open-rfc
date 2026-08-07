@@ -267,7 +267,7 @@ test("public Pages deploys only deterministic public documentation", () => {
   );
 });
 
-test("trusted publishing downloads, verifies, and publishes the exact release tarball", () => {
+test("trusted publishing builds the tag, publishes it, and re-checks the registry", () => {
   assert.deepEqual(Object.keys(publish.value.on), ["release"]);
   assert.equal(publish.value.jobs.publish.environment, "npm");
   assert.equal(publish.value.jobs.publish["runs-on"], "ubuntu-24.04");
@@ -275,8 +275,11 @@ test("trusted publishing downloads, verifies, and publishes the exact release ta
     contents: "read",
     "id-token": "write",
   });
-  assert.match(publish.source, /gh release download/u);
-  assert.match(publish.source, /--pattern 'open-rfc-\*\.tgz'/u);
+  // The tarball is built from the tag rather than downloaded from the release,
+  // so a release created by Release Please carries no assets and still
+  // publishes. What the release must still prove is that the tag names one
+  // commit, that the checkout is that commit, and that the tag names the
+  // version in the manifest.
   assert.match(
     publish.source,
     /\^v0\\\.\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)\$/u,
@@ -294,18 +297,13 @@ test("trusted publishing downloads, verifies, and publishes the exact release ta
     publish.source,
     /git rev-parse --verify HEAD\)" != "\$CANDIDATE_SHA"/u,
   );
-  assert.match(
-    publish.source,
-    /verify_candidate_bundle\.mjs "\$bundle"[\s\S]{0,220}--publication-mode public-license-preflight[\s\S]{0,100}--commit "\$CANDIDATE_SHA"[\s\S]{0,100}--post-release-tag "\$RELEASE_TAG"/u,
-  );
-  assert.equal(
-    (publish.source.match(/node tools\/verify_candidate_bundle\.mjs/gu) ?? []).length,
-    1,
-  );
-  assert.equal(
-    (publish.source.match(/--commit "\$CANDIDATE_SHA"/gu) ?? []).length,
-    1,
-  );
+  assert.match(publish.source, /RELEASE_TAG" != "v\$\{version\}"/u);
+  assert.match(publish.source, /npm pack --ignore-scripts --pack-destination/u);
+  // The release assets are no longer the source of the published bytes, so the
+  // download and the bundle verifier must both be gone rather than merely
+  // unused. A leftover call would verify a bundle nothing produced.
+  assert.doesNotMatch(publish.source, /gh release download/u);
+  assert.doesNotMatch(publish.source, /verify_candidate_bundle\.mjs/u);
   assert.match(
     publish.source,
     /npm publish "\$ARTIFACT" --access public --dry-run --ignore-scripts/u,
@@ -314,9 +312,11 @@ test("trusted publishing downloads, verifies, and publishes the exact release ta
     publish.source,
     /npm publish "\$ARTIFACT" --access public --ignore-scripts --provenance/u,
   );
+  // Publishing is not the last word: the registry is re-read and the tarball it
+  // serves is compared byte for byte against the one that was published.
   assert.match(publish.source, /npm pack "open-rfc@\$\{version\}"/u);
+  assert.match(publish.source, /The registry tarball differs from the verified release asset/u);
   assert.doesNotMatch(publish.source, /npm publish --access|npm dist-tag|--tag\b|NPM_TOKEN/iu);
-  assert.doesNotMatch(publish.source, /npm run build|npm pack --ignore-scripts --json/iu);
 });
 
 test("release creation reverifies the public-mode candidate bundle", () => {

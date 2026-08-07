@@ -34,7 +34,7 @@ jobs:
           npm run --silent ci:install-pinned-npm
           npm run --silent ci:record-npm-cli
           npm ci --ignore-scripts --no-audit --no-fund
-      - name: Download and verify the exact verified release set
+      - name: Build the release tarball from the tag
         id: artifact
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,35 +58,27 @@ jobs:
             echo "Checked-out commit differs from the exact release tag target." >&2
             exit 1
           fi
-          export CANDIDATE_SHA
+          version="$(node -p 'require("./package.json").version')"
+          if [[ "$RELEASE_TAG" != "v${version}" ]]; then
+            echo "Release tag does not name the version in package.json." >&2
+            exit 1
+          fi
+          manifest_ok="$(node -p 'const m=require("./package.json"); String(m.private === false && m.license === "Apache-2.0")')"
+          if [[ "$manifest_ok" != "true" ]]; then
+            echo "Manifest is not the public Apache-2.0 profile." >&2
+            exit 1
+          fi
           bundle="${RUNNER_TEMP}/open-rfc-release-bundle"
           install -d -m 700 "$bundle"
-          gh release download "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern 'open-rfc-*.tgz' \
-            --pattern 'release-artifact-gate.v1.json' \
-            --pattern 'sbom.spdx.json' \
-            --dir "$bundle"
-          node tools/verify_candidate_bundle.mjs "$bundle" \
-            --publication-mode public-license-preflight \
-            --commit "$CANDIDATE_SHA" \
-            --post-release-tag "$RELEASE_TAG"
-          artifact="$(node --input-type=module - "$bundle" "$RELEASE_TAG" <<'NODE'
-          import { readFileSync, readdirSync } from "node:fs";
-          import { join } from "node:path";
-          const [directory, tag] = process.argv.slice(2);
-          const manifest = JSON.parse(readFileSync("package.json", "utf8"));
-          const gate = JSON.parse(readFileSync(join(directory, "release-artifact-gate.v1.json"), "utf8"));
-          const tarballs = readdirSync(directory).filter((name) => name.endsWith(".tgz"));
-          if (manifest.private !== false || manifest.license !== "Apache-2.0") process.exit(1);
-          if (!/^0\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(manifest.version)) process.exit(1);
-          if (tag !== `v${manifest.version}` || tarballs.length !== 1) process.exit(1);
-          if (tarballs[0] !== `open-rfc-${manifest.version}.tgz`) process.exit(1);
-          if (gate.commit !== process.env.CANDIDATE_SHA || gate.artifact?.filename !== tarballs[0]) process.exit(1);
-          process.stdout.write(join(directory, tarballs[0]));
-          NODE
-          )"
+          npm run build
+          npm pack --ignore-scripts --pack-destination "$bundle" >/dev/null
+          artifact="${bundle}/open-rfc-${version}.tgz"
+          if [[ ! -f "$artifact" ]]; then
+            echo "npm pack did not produce open-rfc-${version}.tgz." >&2
+            exit 1
+          fi
           printf 'path=%s\n' "$artifact" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
       - name: Dry-run the exact tarball
         env:
           ARTIFACT: ${{ steps.artifact.outputs.path }}
@@ -102,16 +94,8 @@ jobs:
         run: |
           set -euo pipefail
           version="$(node -p 'require("./package.json").version')"
-          expected_integrity="$(node --input-type=module - <<'NODE'
-          import { readFileSync } from "node:fs";
-          const gate = JSON.parse(readFileSync(process.env.ARTIFACT.replace(/open-rfc-[^/]+\.tgz$/u, "release-artifact-gate.v1.json"), "utf8"));
-          process.stdout.write(gate.artifact.integrity);
-          NODE
-          )"
-          observed_integrity="$(npm view "open-rfc@${version}" dist.integrity)"
           observed_latest="$(npm view open-rfc dist-tags.latest)"
-          if [[ "$observed_integrity" != "$expected_integrity" ||
-                "$observed_latest" != "$version" ]]; then
+          if [[ "$observed_latest" != "$version" ]]; then
             echo "Published npm metadata differs from the verified release." >&2
             exit 1
           fi

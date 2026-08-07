@@ -64,7 +64,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          skip-github-release: "true"
 
   create-draft-release:
     if: >-
