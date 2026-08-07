@@ -307,6 +307,19 @@ test("publishing happens inside the release run, not a second workflow", () => {
   // compared byte for byte against what was published.
   assert.match(releasePlease.source, /npm pack "open-rfc@\$\{version\}"/u);
   assert.match(releasePlease.source, /The registry tarball differs from the verified release asset/u);
+  // The registry read path lags the write. v0.2.2 published successfully and
+  // this verification failed 0.4s later because dist-tags.latest had not caught
+  // up, so both reads poll rather than asking once.
+  assert.match(releasePlease.source, /for attempt in \$\(seq 1 20\)/u);
+  assert.equal(
+    (releasePlease.source.match(/for attempt in \$\(seq 1 20\)/gu) ?? []).length,
+    2,
+    "both the dist-tag read and the tarball read must poll",
+  );
+  // A failure that does not name what it saw cannot distinguish a lagging
+  // registry from a wrong one, which is what made the first failure ambiguous.
+  assert.match(releasePlease.source, /registry latest is '\$\{observed_latest:-<empty>\}'/u);
+  assert.match(releasePlease.source, /registry \$\{registry_digest\}, published \$\{published_digest\}/u);
   assert.doesNotMatch(releasePlease.source, /npm dist-tag|NPM_TOKEN/iu);
 });
 
