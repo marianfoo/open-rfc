@@ -363,9 +363,9 @@
     },
     {
       "path": "dist/src/values/unicode-scalar.d.ts",
-      "bytes": 1159,
-      "sha256": "f616e88ead76f893828b480631f069a95b46c5406bc2d677eb140dedf896d4ec"
+      "bytes": 1191,
+      "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "2d6215e9e78901c09c131f7ca40c00d199918e8a075e30d7aad0d8323548370a"
+  "aggregateSha256": "44b4c2af00ffa3f4e94dc2f47bbdddc9993c3020c49f7ff9757e8606f441390e"
 }

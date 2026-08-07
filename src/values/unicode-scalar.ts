@@ -37,6 +37,34 @@ const NAMED_XML_ENTITY_CODE_POINTS = new Map([
 ]);
 
 /**
+ * A character reference may carry any number of digits: XML 1.0 spells both
+ * forms with `+`, so zero padding is a spelling choice and not a different
+ * reference. These patterns therefore bound the raw run only, far above any
+ * deliberate spelling, so that a very long run cannot become a parse cost. What
+ * the reference actually denotes is decided by its value, below.
+ */
+const MAXIMUM_CHARACTER_REFERENCE_RUN = 32;
+const DECIMAL_RUN = /^[0-9]+$/u;
+const HEXADECIMAL_RUN = /^[0-9A-Fa-f]+$/u;
+
+/** Value of one character reference digit run, ignoring how it is padded. */
+function characterReferenceValue(
+  digits: string,
+  radix: number,
+  run: RegExp,
+  path: string,
+): number {
+  if (digits.length > MAXIMUM_CHARACTER_REFERENCE_RUN || !run.test(digits)) {
+    throw new Error(`${path} contains an unsupported XML entity`);
+  }
+  // An all-zero run denotes U+0000 rather than nothing, so keep one digit. Our
+  // own writers emit `&#00;`, and the readers admit C0 controls in reference
+  // position, so this path is exercised by ordinary round-trips.
+  const significant = digits.replace(/^0+/u, "") || "0";
+  return Number.parseInt(significant, radix);
+}
+
+/**
  * Decode the XML reference starting at `raw[start]`, which must be `&`, and
  * report the code point together with the consumed reference length.
  *
@@ -45,8 +73,9 @@ const NAMED_XML_ENTITY_CODE_POINTS = new Map([
  * character references of any legal width. Our writers emit a narrow canonical
  * subset of that grammar, but a producer following the specification may send
  * any of it, so the readers accept all of it. Digit runs are bounded so a long
- * reference cannot become a decode cost, and the result is guaranteed to be a
- * Unicode scalar. Callers apply their own code-point policy on top.
+ * reference cannot become a decode cost, zero padding is transparent, and the
+ * result is guaranteed to be a Unicode scalar. Callers apply their own
+ * code-point policy on top.
  */
 export function decodeXmlEntityReference(
   raw: string,
@@ -66,17 +95,9 @@ export function decodeXmlEntityReference(
     }
     codePoint = named;
   } else if (body[1] === "x") {
-    const digits = body.slice(2);
-    if (!/^[0-9A-Fa-f]{1,6}$/u.test(digits)) {
-      throw new Error(`${path} contains an unsupported XML entity`);
-    }
-    codePoint = Number.parseInt(digits, 16);
+    codePoint = characterReferenceValue(body.slice(2), 16, HEXADECIMAL_RUN, path);
   } else {
-    const digits = body.slice(1);
-    if (!/^[0-9]{1,7}$/u.test(digits)) {
-      throw new Error(`${path} contains an unsupported XML entity`);
-    }
-    codePoint = Number.parseInt(digits, 10);
+    codePoint = characterReferenceValue(body.slice(1), 10, DECIMAL_RUN, path);
   }
   if (codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
     throw new Error(`${path} contains an out-of-range XML entity`);
