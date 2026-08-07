@@ -303,23 +303,16 @@ test("publishing happens inside the release run, not a second workflow", () => {
     releasePlease.source,
     /npm publish "\$ARTIFACT" --access public --ignore-scripts --provenance/u,
   );
-  // Publishing is not the last word: the registry is re-read and its tarball
-  // compared byte for byte against what was published.
-  assert.match(releasePlease.source, /npm pack "open-rfc@\$\{version\}"/u);
-  assert.match(releasePlease.source, /The registry tarball differs from the verified release asset/u);
-  // The registry read path lags the write. v0.2.2 published successfully and
-  // this verification failed 0.4s later because dist-tags.latest had not caught
-  // up, so both reads poll rather than asking once.
-  assert.match(releasePlease.source, /for attempt in \$\(seq 1 20\)/u);
-  assert.equal(
-    (releasePlease.source.match(/for attempt in \$\(seq 1 20\)/gu) ?? []).length,
-    2,
-    "both the dist-tag read and the tarball read must poll",
-  );
-  // A failure that does not name what it saw cannot distinguish a lagging
-  // registry from a wrong one, which is what made the first failure ambiguous.
-  assert.match(releasePlease.source, /registry latest is '\$\{observed_latest:-<empty>\}'/u);
-  assert.match(releasePlease.source, /registry \$\{registry_digest\}, published \$\{published_digest\}/u);
+  // There is deliberately no post-publish registry check. npm verifies tarball
+  // integrity on receipt, so re-downloading to compare bytes re-checks what the
+  // publish already guaranteed — and asking the CDN-backed read path
+  // immediately after a write is a race it lost on v0.2.2, failing a run in
+  // which nothing was wrong. What replaces it is stronger and not self-issued:
+  // --provenance records a signed attestation any third party can verify with
+  // `npm audit signatures`.
+  assert.doesNotMatch(releasePlease.source, /npm view open-rfc/u);
+  assert.doesNotMatch(releasePlease.source, /npm pack "open-rfc@/u);
+  assert.match(releasePlease.source, /--provenance/u);
   assert.doesNotMatch(releasePlease.source, /npm dist-tag|NPM_TOKEN/iu);
 });
 

@@ -1,4 +1,4 @@
-# Research: the npm registry read path lags the write
+# Research: the post-publish registry check, and why it is gone
 
 ## What happened
 
@@ -14,51 +14,63 @@ the publish.
 
 ## Timing
 
-From the run log:
-
 | | |
 |---|---|
 | publish step completes | `21:34:08` |
 | verification step starts | `21:34:08.94` |
 | `npm view` returns and the check fails | `21:34:09.33` |
 
-The registry was queried **0.4 seconds** after the publish returned.
+The registry was queried **0.4 seconds** after the write. npm's read path is
+CDN-backed and does not update in step with a write: a successful `npm publish`
+means the write was accepted, not that every read replica already serves it.
 
-## Why
+## The first fix was the wrong fix
 
-npm's read path is CDN-backed and does not update in step with a write. A
-successful `npm publish` means the write was accepted, not that every read
-replica already serves it. Asking once, immediately, is a race — and it is a
-race the workflow loses often enough to matter, because the check ran as the
-very next step with nothing in between.
+The obvious response was to poll — ask repeatedly until the registry catches up.
+That removes the false failure and leaves the check in place.
 
-Confirmed by observation: `npm view open-rfc dist-tags.latest` reports `0.2.2`
-now. Nothing was ever wrong with the published artifact.
+It also keeps a check that was never earning its cost. The better question is
+whether the step should exist at all.
 
-## Second defect in the same step
+## What the step actually verified
 
-The failure message named neither the observed value nor the expected one. So
-the log could not distinguish
+- **`dist-tags.latest` equals the version.** The publish command passes no
+  `--tag`, so `latest` is true by construction. This asserted the behaviour of
+  the command three lines above it.
+- **The registry tarball matches the published bytes.** npm computes and
+  verifies tarball integrity on receipt; a publish that returned success and
+  then served different bytes is not a failure mode this check could
+  meaningfully catch, and it has never caught one.
 
-- a registry that has not caught up yet, and
-- a genuinely wrong publish
+So: one tautology, one duplicate of a guarantee npm already makes. Against that,
+a 1-in-1 false-failure rate, and a red run for a release where nothing was wrong
+— which is worse than no check, because a check that cries wolf gets ignored
+exactly when it matters.
 
-which are the same string on the way out and completely different problems. The
-first costs a re-run; the second is a release incident.
+## What replaces it
 
-## Fix
+`--provenance` with npm trusted publishing. It records a signed attestation
+binding the package to the exact commit and workflow run that built it, in a
+public transparency log. Anyone can verify it:
 
-Poll rather than ask once, for both reads — the dist-tag and the tarball — with
-a bounded number of attempts, and print what was actually seen on each retry and
-on final failure.
+```
+npm audit signatures
+```
 
-Bounded, not unbounded: a registry that never catches up is a real failure and
-must still fail. Twenty attempts at six seconds is two minutes, which is far
-beyond observed propagation and still terminates.
+That is strictly stronger than the step it replaces, for the reason that matters:
+a workflow checking its own publish is self-issued, and an attestation a third
+party can verify is not.
 
-## What is deliberately unchanged
+## What is kept
 
-The comparison itself. Once the registry serves the version, its tarball is
-still re-downloaded and compared **byte for byte** against what was published.
-That check found nothing wrong here and remains the point of the step — the
-race was in when it asked, not in what it asked.
+Everything before the publish, which is where the real verification lives: the
+tag must be an exact lightweight `v0.x.y` naming the checked-out commit and the
+manifest version, the manifest must be the public Apache-2.0 profile, and the
+publish is dry-run first.
+
+## The general lesson
+
+The first instinct was to make a failing check reliable. The right question was
+whether the check was worth having. A check that duplicates a guarantee you
+already have, and that can fail when nothing is wrong, is a liability with the
+shape of diligence.
