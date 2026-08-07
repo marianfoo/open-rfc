@@ -1,16 +1,25 @@
 name: Release Please
 
-# Every push to main is offered to Release Please. It either opens or updates a
-# release pull request, or does nothing because no releasable commit has landed
-# since the last release. Doing nothing is the normal case and is reported as a
-# successful run.
+# The whole release, in one run.
 #
-# Merging that pull request is the whole release. Release Please bumps the
-# version, writes the changelog, tags the commit and creates the GitHub release;
-# creating the release is what triggers npm-publish.yml.
+# Release Please either opens or updates a release pull request, or — when that
+# pull request has just merged — tags the commit, creates the GitHub release,
+# and reports release_created. The publish job hangs off that output.
+#
+# It has to be one run. Release Please creates the release using GITHUB_TOKEN,
+# and GitHub does not let a GITHUB_TOKEN event start another workflow, so a
+# separate workflow listening for `release: published` is never woken. That is
+# what stranded v0.2.1: the release existed and nothing published it. A
+# dependent job in the same run is the ordinary pattern and needs no second
+# credential.
+#
+# workflow_dispatch publishes whatever tag the manifest names, without going
+# through Release Please. A publisher with no manual path has no recovery when a
+# release is created and the publish fails.
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions: {}
 
@@ -28,12 +37,14 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      # The release pull request is opened with GITHUB_TOKEN, and GitHub does
-      # not let a GITHUB_TOKEN event start another workflow run. So this one
-      # pull request arrives with NO CI run of its own, and a required status
-      # check on main would leave it permanently unmergeable rather than merely
-      # unverified.
+      # The release pull request is opened with GITHUB_TOKEN, so it arrives with
+      # no CI run of its own — the same rule that makes the publish job below
+      # part of this run. A required status check on main would leave that pull
+      # request permanently unmergeable rather than merely unverified.
       #
       # Read it before merging. Release Please rewrites the version in
       # package.json, package-lock.json, .release-please-manifest.json,
@@ -41,11 +52,116 @@ jobs:
       # shipped source file, so the change does reach the published package.
       # The contents are machine-generated from commits that were themselves
       # verified, which is what makes an unchecked merge acceptable here.
-      #
-      # A GitHub App or PAT in RELEASE_PLEASE_TOKEN would restore CI on this
-      # pull request. That is the only thing it buys.
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  publish-npm:
+    needs: release-please
+    if: >-
+      ${{ github.repository == 'marianfoo/open-rfc' &&
+          (needs.release-please.outputs.release_created == 'true' ||
+           github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Install the exact verification toolchain
+        # npm trusted publishing needs npm 11.5 or newer for OIDC. The pinned
+        # version is well past that.
+        run: |
+          npm run --silent ci:install-pinned-npm
+          npm run --silent ci:record-npm-cli
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build the release tarball from the tag
+        id: artifact
+        env:
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          # A manual run carries no Release Please output, so the tag is the one
+          # the manifest already names. On a real release the two must agree;
+          # disagreeing means this checkout is not the release.
+          if [[ -z "${RELEASE_TAG:-}" ]]; then
+            RELEASE_TAG="v${version}"
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v0\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release tag must be an exact stable v0.x.y tag." >&2
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" != "v${version}" ]]; then
+            echo "Release tag does not name the version in package.json." >&2
+            exit 1
+          fi
+          tag_ref="refs/tags/${RELEASE_TAG}"
+          git fetch --force --no-tags origin "+${tag_ref}:${tag_ref}"
+          if [[ "$(git cat-file -t "$tag_ref")" != "commit" ]]; then
+            echo "Release tag must be lightweight and point directly to a commit." >&2
+            exit 1
+          fi
+          if [[ "$(git rev-parse --verify "$tag_ref")" != "$(git rev-parse --verify HEAD)" ]]; then
+            echo "Checked-out commit differs from the exact release tag target." >&2
+            exit 1
+          fi
+          manifest_ok="$(node -p 'const m=require("./package.json"); String(m.private === false && m.license === "Apache-2.0")')"
+          if [[ "$manifest_ok" != "true" ]]; then
+            echo "Manifest is not the public Apache-2.0 profile." >&2
+            exit 1
+          fi
+          bundle="${RUNNER_TEMP}/open-rfc-release-bundle"
+          install -d -m 700 "$bundle"
+          npm run build
+          npm pack --ignore-scripts --pack-destination "$bundle" >/dev/null
+          artifact="${bundle}/open-rfc-${version}.tgz"
+          if [[ ! -f "$artifact" ]]; then
+            echo "npm pack did not produce open-rfc-${version}.tgz." >&2
+            exit 1
+          fi
+          printf 'path=%s\n' "$artifact" >> "$GITHUB_OUTPUT"
+      - name: Dry-run the exact tarball
+        env:
+          ARTIFACT: ${{ steps.artifact.outputs.path }}
+        run: npm publish "$ARTIFACT" --access public --dry-run --ignore-scripts
+      - name: Publish the exact tarball with npm trusted publishing
+        env:
+          ARTIFACT: ${{ steps.artifact.outputs.path }}
+        run: npm publish "$ARTIFACT" --access public --ignore-scripts --provenance
+      - name: Verify registry metadata and the downloaded tarball
+        env:
+          ARTIFACT: ${{ steps.artifact.outputs.path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          observed_latest="$(npm view open-rfc dist-tags.latest)"
+          if [[ "$observed_latest" != "$version" ]]; then
+            echo "Published npm metadata differs from the verified release." >&2
+            exit 1
+          fi
+          download="${RUNNER_TEMP}/open-rfc-registry"
+          install -d -m 700 "$download"
+          npm pack "open-rfc@${version}" --ignore-scripts --pack-destination "$download" >/dev/null
+          registry=("$download"/open-rfc-*.tgz)
+          if [[ "${#registry[@]}" != "1" ||
+                "$(sha256sum "${registry[0]}" | awk '{print $1}')" !=
+                "$(sha256sum "$ARTIFACT" | awk '{print $1}')" ]]; then
+            echo "The registry tarball differs from the verified release asset." >&2
+            exit 1
+          fi
