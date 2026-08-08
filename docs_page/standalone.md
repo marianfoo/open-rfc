@@ -1,6 +1,6 @@
 # A standalone RFC call
 
-<p class="open-rfc-lead">This complete example calls `STFC_CONNECTION`, prints one fixed success line, and always closes the session.</p>
+<p class="open-rfc-lead">These complete ESM and CommonJS examples call `STFC_CONNECTION`, print one fixed success line, and always close the session.</p>
 
 Save the first example as `rfc-smoke.mjs` and run it with
 `node rfc-smoke.mjs`. Missing connection configuration produces one sanitized,
@@ -75,6 +75,85 @@ If the call and `close()` both fail, the example preserves both errors and keeps
 the call failure as the primary cause internally. It emits only a fixed failure
 line; production code may route the retained object only to an
 application-owned private handler with an explicit redaction policy.
+
+## CommonJS
+
+Save this equivalent Promise example as `rfc-smoke.cjs` when the surrounding
+application uses CommonJS. The explicit `.cjs` extension makes the module
+format unambiguous without changing the application's `package.json`.
+
+<!-- open-rfc-doc-example id="pages-standalone-commonjs" runtime="cjs" outcome="missing-connection" sha256="d53a41e98048cbffcf6bb16a8be196f6c53a8f7c42ca0b42c48d89355b4517d7" -->
+```js
+"use strict";
+
+const { Client } = require("open-rfc");
+
+const required = ["SAP_ASHOST", "SAP_CLIENT", "SAP_USER", "SAP_PASSWD"];
+const missing = required.filter((name) => !process.env[name]);
+
+async function main() {
+  if (missing.length > 0) {
+    console.error(
+      `Missing required SAP connection environment variables: ${missing.join(", ")}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const requestText = "hello from open-rfc";
+  const client = new Client(
+    {
+      ashost: process.env.SAP_ASHOST,
+      sysnr: process.env.SAP_SYSNR ?? "00",
+      client: process.env.SAP_CLIENT,
+      user: process.env.SAP_USER,
+      passwd: process.env.SAP_PASSWD,
+      lang: process.env.SAP_LANG ?? "EN",
+    },
+    { timeout: 15 },
+  );
+
+  let opened = false;
+  let failure;
+  try {
+    await client.open();
+    opened = true;
+    const result = await client.call("STFC_CONNECTION", {
+      REQUTEXT: requestText,
+    });
+    if (result.ECHOTEXT !== requestText) {
+      throw new Error("STFC_CONNECTION returned an unexpected echo");
+    }
+  } catch (error) {
+    failure = error;
+  }
+
+  if (opened) {
+    try {
+      await client.close();
+    } catch (closeError) {
+      failure = failure
+        ? new AggregateError(
+            [failure, closeError],
+            "RFC operation and close both failed",
+            { cause: failure },
+          )
+        : closeError;
+    }
+  }
+  if (failure) {
+    console.error("RFC operation failed; consult private, redacted diagnostics.");
+    process.exitCode = 1;
+  } else {
+    console.log("hello from open-rfc");
+  }
+}
+
+void main().catch(() => {
+  console.error("RFC operation failed; consult private, redacted diagnostics.");
+  process.exitCode = 1;
+});
+```
 
 ## Operational rules
 
