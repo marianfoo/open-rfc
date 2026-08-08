@@ -19,6 +19,7 @@ export const PUBLIC_MJS_TESTS = Object.freeze([
   "test/public-support-links.test.mjs",
   "test/tool-bounds.test.mjs",
   "test/trusted-git.test.mjs",
+  "test/v1-roadmap.test.mjs",
 ]);
 
 export class PublicTestSuiteError extends Error {

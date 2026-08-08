@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-rfc.invalid/conformance/schemas/v1-gate-ledger-v1.schema.json",
+  "title": "open-rfc 1.0 roadmap ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "kind",
+    "releaseContract",
+    "statusVocabulary",
+    "assessmentVocabulary",
+    "estimateAssumptions",
+    "requiredOutcomeCoverage",
+    "gates"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./schemas/v1-gate-ledger-v1.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "open-rfc-v1-roadmap"
+    },
+    "releaseContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageName",
+        "targetVersion",
+        "startingPoint",
+        "baselineResolution",
+        "defaultScope",
+        "scopeRule",
+        "admissionRule"
+      ],
+      "properties": {
+        "packageName": { "const": "open-rfc" },
+        "targetVersion": { "const": "1.0.0" },
+        "startingPoint": { "const": "published-0.x-beta-line" },
+        "baselineResolution": { "type": "string", "minLength": 1 },
+        "defaultScope": { "type": "string", "minLength": 1 },
+        "scopeRule": { "type": "string", "minLength": 1 },
+        "admissionRule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "statusVocabulary": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["proposed", "accepted", "in-progress", "blocked", "done", "deferred"]
+      }
+    },
+    "assessmentVocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["importance", "risk", "effort", "confidence", "releaseRequirement"],
+      "properties": {
+        "importance": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "risk": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "effort": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "confidence": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "releaseRequirement": { "$ref": "#/$defs/nonEmptyStringArray" }
+      }
+    },
+    "estimateAssumptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "teamModel", "existingAssets", "excludes", "interpretation"],
+      "properties": {
+        "unit": { "const": "experienced-maintainer-person-days" },
+        "teamModel": { "type": "string", "minLength": 1 },
+        "existingAssets": { "type": "string", "minLength": 1 },
+        "excludes": { "type": "string", "minLength": 1 },
+        "interpretation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "requiredOutcomeCoverage": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/outcomeCoverage" }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/gate" }
+    }
+  },
+  "$defs": {
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "outcomeCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requirementIds"],
+      "properties": {
+        "id": {
+          "enum": [
+            "consecutive-clean-candidates",
+            "stable-api-and-policies",
+            "twenty-four-hour-soaks",
+            "linux-node-consumers",
+            "production-like-adopters",
+            "reproducible-assurance",
+            "operations-readiness"
+          ]
+        },
+        "requirementIds": { "$ref": "#/$defs/nonEmptyStringArray" }
+      }
+    },
+    "importance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "rationale"],
+      "properties": {
+        "level": { "enum": ["critical", "high", "medium", "low"] },
+        "rationale": { "type": "string", "minLength": 20 }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "summary", "domains", "mitigations"],
+      "properties": {
+        "level": { "enum": ["critical", "high", "medium", "low"] },
+        "summary": { "type": "string", "minLength": 20 },
+        "domains": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "correctness",
+              "security",
+              "compatibility",
+              "operations",
+              "schedule",
+              "external-dependency",
+              "scope",
+              "supply-chain"
+            ]
+          }
+        },
+        "mitigations": { "$ref": "#/$defs/nonEmptyStringArray" }
+      }
+    },
+    "personDays": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": { "type": "integer", "minimum": 1 },
+        "maximum": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "effort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "personDays", "confidence", "drivers"],
+      "properties": {
+        "size": { "enum": ["XS", "S", "M", "L", "XL"] },
+        "personDays": { "$ref": "#/$defs/personDays" },
+        "confidence": { "enum": ["high", "medium", "low"] },
+        "drivers": { "type": "string", "minLength": 20 }
+      }
+    },
+    "workItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "summary",
+        "status",
+        "releaseRequirement",
+        "condition",
+        "executionKind",
+        "importance",
+        "risk",
+        "effort",
+        "ownerKinds",
+        "dependsOn",
+        "deliverables",
+        "acceptanceCriteria"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^roadmap\\.v1-(0[0-6])\\.[a-z0-9][a-z0-9.-]+$"
+        },
+        "title": { "type": "string", "minLength": 3 },
+        "summary": { "type": "string", "minLength": 20 },
+        "status": {
+          "enum": ["proposed", "accepted", "in-progress", "blocked", "done", "deferred"]
+        },
+        "releaseRequirement": { "enum": ["required", "conditional", "post-v1"] },
+        "condition": { "type": ["string", "null"] },
+        "executionKind": {
+          "enum": ["decision", "implementation", "evidence", "policy", "external", "release"]
+        },
+        "importance": { "$ref": "#/$defs/importance" },
+        "risk": { "$ref": "#/$defs/risk" },
+        "effort": { "$ref": "#/$defs/effort" },
+        "ownerKinds": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "dependsOn": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "deliverables": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "acceptanceCriteria": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 10 }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "objective", "dependsOn", "exitCriteria", "workItems"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^V1-0[0-6]$" },
+        "title": { "type": "string", "minLength": 3 },
+        "objective": { "type": "string", "minLength": 20 },
+        "dependsOn": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^V1-0[0-6]$" }
+        },
+        "exitCriteria": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 10 }
+        },
+        "workItems": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/workItem" }
+        }
+      }
+    }
+  }
+}

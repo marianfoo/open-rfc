@@ -51,6 +51,7 @@ nav:
       - Operations: operations.md
       - Project policies: policies.md
       - Glossary: glossary.md
+  - Road to 1.0: roadmap.md
   - Release status: status.md
 
 exclude_docs: |
