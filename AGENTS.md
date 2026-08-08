@@ -41,6 +41,11 @@ During development, run the smallest relevant test first. Before opening a pull
 request, run every applicable command above and any focused fault, property,
 resource, or compatibility test named by the changed component.
 
+For a documentation-only change, the applicable commands are
+`npm run check:docs:public` and `npm run docs:site:check`. Do not run the
+product test, lint, or package-shape suites unless the change also touches
+product code, shared tooling, package contents, or their contracts.
+
 ## Contribution rules
 
 - Read `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, and `SUPPORT.md` before
