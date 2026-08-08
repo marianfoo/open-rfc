@@ -138,6 +138,7 @@ const PAGES = Object.freeze([
   "operations",
   "policies",
   "glossary",
+  "roadmap",
   "status",
 ]);
 

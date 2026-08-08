@@ -44,6 +44,8 @@
     "check:docs:public": "npm run build --silent && node tools/docs_check.mjs --public && node tools/documentation_examples.mjs",
     "docs:site:build": "node tools/docs_site.mjs",
     "docs:site:check": "node tools/docs_site.mjs --check",
+    "v1:roadmap:check": "node tools/v1_roadmap.mjs check",
+    "v1:roadmap:write": "node tools/v1_roadmap.mjs write",
     "package:shape": "node tools/package_shape.mjs",
     "lint": "oxlint src tools test",
     "conformance:public": "npm run build --silent && node tools/public_conformance.mjs",

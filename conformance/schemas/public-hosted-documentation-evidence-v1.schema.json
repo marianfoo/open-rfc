@@ -173,7 +173,7 @@
       "properties": {
         "algorithm": { "const": "candidate-documentation-source-sha256-v1" },
         "commit": { "$ref": "#/$defs/commit" },
-        "fileCount": { "const": 18 },
+        "fileCount": { "const": 19 },
         "sha256": { "$ref": "#/$defs/sha256" },
         "configurationSha256": { "$ref": "#/$defs/sha256" },
         "requirementsSha256": { "$ref": "#/$defs/sha256" }
@@ -188,7 +188,7 @@
       ],
       "properties": {
         "files": { "type": "integer", "minimum": 14 },
-        "pages": { "const": 14 },
+        "pages": { "const": 15 },
         "bytes": { "type": "integer", "minimum": 1 },
         "sha256": { "$ref": "#/$defs/sha256" },
         "deterministic": { "const": true },
