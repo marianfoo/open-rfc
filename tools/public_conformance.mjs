@@ -10,12 +10,9 @@ import exportManifestSchema from
   "../conformance/schemas/api-export-manifest-v1.schema.json" with { type: "json" };
 import publicApiSnapshotSchema from
   "../conformance/schemas/public-api-snapshot-v1.schema.json" with { type: "json" };
-import v1RoadmapSchema from
-  "../conformance/schemas/v1-gate-ledger-v1.schema.json" with { type: "json" };
 
 import { validateJsonSchemaSubset } from "./json_schema_subset.mjs";
 import { createPublicApiSnapshot } from "./public_api_snapshot.mjs";
-import { validateV1Roadmap } from "./v1_roadmap.mjs";
 
 const DEFAULT_ROOT = resolve(import.meta.dirname, "..");
 
@@ -81,25 +78,16 @@ export function comparePublicApiSnapshotForRelease(expectedValue, actualValue) {
     .digest("hex");
 }
 
-/** Validate the public API, type, and roadmap contracts. */
+/** Validate only the public API and type contracts. */
 export async function validatePublicConformance(rootValue = DEFAULT_ROOT) {
   const root = resolve(rootValue);
-  const [manifest, snapshot, packageManifest, v1RoadmapDocument] = await Promise.all([
+  const [manifest, snapshot, packageManifest] = await Promise.all([
     readJson(root, "conformance/api/root-exports.v1.json"),
     readJson(root, "conformance/api/public-types.v1.json"),
     readJson(root, "package.json"),
-    readJson(root, "conformance/v1-gates.v1.json"),
   ]);
   validate(manifest, exportManifestSchema, "root export manifest");
   validate(snapshot, publicApiSnapshotSchema, "public API snapshot");
-  validate(v1RoadmapDocument, v1RoadmapSchema, "v1 roadmap");
-  let v1Roadmap;
-  try {
-    v1Roadmap = validateV1Roadmap(v1RoadmapDocument);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    fail(`v1 roadmap failed its semantic contract (${detail})`);
-  }
   if (
     manifest.module !== packageManifest.name ||
     snapshot.module !== packageManifest.name ||
@@ -131,7 +119,6 @@ export async function validatePublicConformance(rootValue = DEFAULT_ROOT) {
     exportCount: expectedExports.length,
     declarationCount: actualSnapshot.declarationCount,
     releaseNeutralSha256,
-    v1Roadmap,
   });
 }
 

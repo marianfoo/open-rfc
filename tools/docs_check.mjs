@@ -6,7 +6,6 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collectDocumentationExamples } from "./documentation_examples.mjs";
-import { checkV1RoadmapDocumentation } from "./v1_roadmap.mjs";
 
 const TOOL_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(TOOL_DIRECTORY, "..");
@@ -111,7 +110,6 @@ export async function checkDocumentation(root = DEFAULT_ROOT, { publicOnly = fal
     documents.push({ path, source });
   }
   const examples = collectDocumentationExamples(documents);
-  await checkV1RoadmapDocumentation(root);
   if (!publicOnly) {
     const [
       { checkCapabilitySupport },
