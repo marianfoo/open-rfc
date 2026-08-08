@@ -58,6 +58,9 @@ import {
 import {
   createSapRouterDirectCpicTransportFactory,
 } from "../transport/saprouter-ni.js";
+import {
+  createConnectivitySocks5DirectCpicTransportFactory,
+} from "../transport/connectivity-socks5-ni.js";
 import { NiTransportError } from "../transport/ni-socket.js";
 
 export interface RFCInputParams {
@@ -925,6 +928,15 @@ export class RFCClient {
       },
       operationTimeoutMs: MODERN_OPERATION_TIMEOUT_MS,
       sapRouterTransportFactory: createSapRouterDirectCpicTransportFactory,
+      connectivitySocks5TransportFactory: (plan) =>
+        createConnectivitySocks5DirectCpicTransportFactory({
+          proxyHost: plan.host,
+          proxyPort: plan.port,
+          accessToken: plan.accessToken,
+          ...(plan.locationId === undefined
+            ? {}
+            : { locationId: plan.locationId }),
+        }),
     });
     bindRFCClientSessionProvider(
       this,

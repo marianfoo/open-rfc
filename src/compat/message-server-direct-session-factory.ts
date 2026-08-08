@@ -37,7 +37,11 @@ function messagePlan(options: MessageServerDirectSessionFactoryOptions): void {
   if (options.plan.authentication.kind !== "named-user") {
     throw new TypeError("message-server session factory requires named-user authentication");
   }
-  if (options.plan.sapRouter !== undefined || options.plan.connectivityProxy !== undefined) {
+  if (
+    options.plan.sapRouter !== undefined ||
+    options.plan.connectivityProxy !== undefined ||
+    options.plan.connectivitySocks5 !== undefined
+  ) {
     throw new TypeError(
       "message-server session factory does not implement SAProuter or Connectivity",
     );

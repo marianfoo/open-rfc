@@ -18,6 +18,7 @@ export type ConnectionProviderCapability =
   | "named-user-authentication"
   | "principal-propagation"
   | "saprouter-routing"
+  | "connectivity-socks5-tcp"
   | "connectivity-rfc-proxy"
   | "connectivity-proxy-authorization";
 
@@ -79,12 +80,24 @@ export interface ConnectivityProxyPlan {
   readonly locationId?: string;
 }
 
+export interface ConnectivitySocks5Plan {
+  /** Connectivity binding field onpremise_proxy_host. */
+  readonly host: string;
+  /** Connectivity binding field onpremise_socks5_proxy_port. */
+  readonly port: number;
+  /** Raw, short-lived Connectivity JWT without a Bearer prefix. */
+  readonly accessToken: string;
+  /** Unencoded Cloud Connector location ID. */
+  readonly locationId?: string;
+}
+
 export interface ConnectionRoutePlan {
   readonly route: ConnectionRoute;
   readonly logon: NormalizedRfcLogon;
   readonly authentication: ConnectionAuthenticationPlan;
   readonly sapRouter?: SapRouterPlan;
   readonly connectivityProxy?: ConnectivityProxyPlan;
+  readonly connectivitySocks5?: ConnectivitySocks5Plan;
   /** Capabilities a downstream provider must prove before opening a socket. */
   readonly requiredProviderCapabilities: readonly ConnectionProviderCapability[];
 }
@@ -155,6 +168,10 @@ const CONNECTION_PARAMETER_NAMES = Object.freeze([
   "connectivity_proxy_authentication",
   "connectivity_subaccount",
   "connectivity_location_id",
+  "connectivity_socks5_proxy_host",
+  "connectivity_socks5_proxy_port",
+  "connectivity_socks5_access_token",
+  "connectivity_socks5_location_id",
   "business_user_token",
 ] as const);
 
@@ -268,7 +285,8 @@ function asciiTextParameter(
 
 function portParameter(
   input: ConnectionParameterSnapshot,
-  name: "wsport" | "connectivity_proxy_port",
+  name: "wsport" | "connectivity_proxy_port" |
+    "connectivity_socks5_proxy_port",
 ): number {
   const value = textParameter(input, name, true)!;
   if (!/^\d+$/u.test(value)) {
@@ -506,6 +524,71 @@ function planConnectivityProxy(
   });
 }
 
+function planConnectivitySocks5(
+  input: ConnectionParameterSnapshot,
+): ConnectivitySocks5Plan | undefined {
+  const hasHost = hasValue(input, "connectivity_socks5_proxy_host");
+  const hasPort = hasValue(input, "connectivity_socks5_proxy_port");
+  const hasToken = hasValue(input, "connectivity_socks5_access_token");
+  const hasLocation = hasValue(input, "connectivity_socks5_location_id");
+  if (!hasHost && !hasPort && !hasToken) {
+    if (hasLocation) {
+      throw new TypeError(
+        "connectivity_socks5_location_id requires the complete Connectivity SOCKS5 route",
+      );
+    }
+    return undefined;
+  }
+  if (!hasHost || !hasPort || !hasToken) {
+    throw new TypeError(
+      "connectivity_socks5_proxy_host, connectivity_socks5_proxy_port, and connectivity_socks5_access_token must be supplied together",
+    );
+  }
+
+  const accessToken = asciiTextParameter(
+    input,
+    "connectivity_socks5_access_token",
+    true,
+    65_536,
+  )!;
+  if (accessToken.startsWith("Bearer ")) {
+    throw new RangeError(
+      "connectivity_socks5_access_token must be a raw token without a Bearer prefix",
+    );
+  }
+  const locationId = textParameter(
+    input,
+    "connectivity_socks5_location_id",
+    false,
+  );
+  if (
+    locationId !== undefined &&
+    (Buffer.byteLength(locationId, "utf8") > 189 ||
+      /[\u0000-\u001f\u007f]/u.test(locationId))
+  ) {
+    throw new RangeError(
+      "connectivity_socks5_location_id must use at most 189 bytes without control characters",
+    );
+  }
+  const value = {
+    host: asciiTextParameter(
+      input,
+      "connectivity_socks5_proxy_host",
+      true,
+      255,
+    )!,
+    port: portParameter(input, "connectivity_socks5_proxy_port"),
+    accessToken,
+    ...(locationId === undefined ? {} : { locationId }),
+  };
+  return freezeSecretNode(value, {
+    host: value.host,
+    port: value.port,
+    accessToken: REDACTED,
+    ...(locationId === undefined ? {} : { locationId: REDACTED }),
+  });
+}
+
 function sapRouterRouteString(input: ConnectionParameterSnapshot): string | undefined {
   const value = textParameter(input, "saprouter", false);
   if (value === undefined) return undefined;
@@ -528,6 +611,12 @@ export function planConnectionRoute(
   const route = planRoute(input);
   const authentication = planAuthentication(input);
   const connectivityProxy = planConnectivityProxy(input);
+  const connectivitySocks5 = planConnectivitySocks5(input);
+  if (connectivityProxy !== undefined && connectivitySocks5 !== undefined) {
+    throw new TypeError(
+      "Connectivity RFC proxy and Connectivity SOCKS5 routes cannot be combined",
+    );
+  }
   if (
     authentication.authentication.kind === "principal-propagation" &&
     connectivityProxy === undefined
@@ -540,6 +629,23 @@ export function planConnectionRoute(
   const routeString = sapRouterRouteString(input);
   if (routeString !== undefined && route.route.kind === "websocket") {
     throw new TypeError("saprouter cannot be combined with WebSocket RFC");
+  }
+  if (connectivitySocks5 !== undefined) {
+    if (route.route.kind !== "direct") {
+      throw new TypeError(
+        "Connectivity SOCKS5 is supported only for a direct ashost route",
+      );
+    }
+    if (authentication.authentication.kind !== "named-user") {
+      throw new TypeError(
+        "Connectivity SOCKS5 requires named-user authentication",
+      );
+    }
+    if (routeString !== undefined) {
+      throw new TypeError(
+        "Connectivity SOCKS5 cannot be combined with SAProuter",
+      );
+    }
   }
   const sapRouter = routeString === undefined
     ? undefined
@@ -559,6 +665,9 @@ export function planConnectionRoute(
       required.push("connectivity-proxy-authorization");
     }
   }
+  if (connectivitySocks5 !== undefined) {
+    required.push("connectivity-socks5-tcp");
+  }
 
   return Object.freeze({
     route: route.route,
@@ -566,6 +675,7 @@ export function planConnectionRoute(
     authentication: authentication.authentication,
     ...(sapRouter === undefined ? {} : { sapRouter }),
     ...(connectivityProxy === undefined ? {} : { connectivityProxy }),
+    ...(connectivitySocks5 === undefined ? {} : { connectivitySocks5 }),
     requiredProviderCapabilities: Object.freeze(required),
   });
 }

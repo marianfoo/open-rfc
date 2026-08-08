@@ -200,6 +200,12 @@ parameters, returned tables, raw frames, or backend identity.
   are not supported by this release. Do not rely on those preview
   routes for its beta support contract; consult the status page shipped with a
   later exact version before assuming support changed.
+- BTP Connectivity SOCKS5/TCP routing for a direct named-user connection is an
+  implemented preview. It requires the Connectivity binding's SOCKS5 endpoint,
+  a Cloud Connector TCP mapping to the SAP gateway, and the explicit
+  `connectivity_socks5_*` parameters documented on the site. It is not the
+  separate Connectivity RFC proxy and cannot enforce Cloud Connector
+  function-module resources.
 - WebSocket RFC business calls, Cloud Connector principal propagation, SNC,
   and X.509 are not supported and fail closed before business I/O when their
   required provider or authentication capability is absent.
@@ -308,11 +314,11 @@ destination lookup, Cloud SDK behavior, or multitenancy. Direct
 application-server destinations using classic serialization and password
 authentication define the first-beta CAP route. Semantic transactions are
 supported only when a release's support record names live transaction testing
-for that exact artifact. Message-server and SAProuter are
-implemented previews but are not part of this release's beta support.
-WebSocket business calls, Cloud Connector principal propagation,
-SNC, and X.509 are unsupported and require capabilities the beta provider does
-not advertise.
+for that exact artifact. Message-server, SAProuter, and Connectivity SOCKS5/TCP
+are implemented previews but are not part of this release's beta support.
+WebSocket business calls, the Connectivity RFC proxy, Cloud Connector principal
+propagation, SNC, and X.509 are unsupported and require capabilities the beta
+provider does not advertise.
 
 ## Troubleshooting
 

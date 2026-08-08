@@ -107,6 +107,19 @@ closed.
 | `cpic_streaming` | Optional `"disabled"` (default) or explicitly enabled `"enabled"`. |
 | `saprouter` | Implemented preview. The scoped first beta does not support this route even when the syntax validates and a connection succeeds. |
 
+### BTP Connectivity SOCKS5 (unsupported preview)
+
+| Field | Requirement and behavior |
+|---|---|
+| `connectivity_socks5_proxy_host` | Required with port and token; use the binding's `onpremise_proxy_host`. |
+| `connectivity_socks5_proxy_port` | Required with host and token; use `onpremise_socks5_proxy_port`, not the RFC-proxy port. |
+| `connectivity_socks5_access_token` | Required raw Connectivity access token without a `Bearer ` prefix. It is snapshotted and hidden from JSON/inspection. |
+| `connectivity_socks5_location_id` | Optional unencoded Cloud Connector location ID. |
+
+These fields select only a direct named-user route. The caller owns OAuth token
+acquisition and refresh. The low-level SOCKS5 transport is internal and is not
+exported from the package root.
+
 `cpic_streaming: "enabled"` is an advanced, target-specific opt-in, not a
 workaround for a rejected large request. The default `"disabled"` path is the
 public starting point. Use `"enabled"` only when the exact release record and

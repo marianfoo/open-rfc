@@ -478,7 +478,10 @@ export function createMessageServerRfcSessionProvider(
           "message-server provider supports only direct and message-server routes",
         );
       }
-      if (plan.connectivityProxy !== undefined) {
+      if (
+        plan.connectivityProxy !== undefined ||
+        plan.connectivitySocks5 !== undefined
+      ) {
         throw new TypeError(
           "message-server resolution does not implement Connectivity",
         );

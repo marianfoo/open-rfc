@@ -26,6 +26,13 @@
   unavailable. Message-server and SAProuter previews may attempt network I/O,
   but remain outside this release's beta support.
 
+For the Connectivity SOCKS5 preview, confirm that the binding value is
+`onpremise_socks5_proxy_port`, the token has no `Bearer ` prefix, and `gwhost` /
+`gwserv` name an enabled Cloud Connector TCP virtual mapping. The RFC-proxy port
+is not a fallback. An authentication rejection is a Connectivity-token problem;
+a target rejection is a TCP mapping or application-allowlist problem; an SAP
+logon failure occurs only after both tunnel stages succeeded.
+
 For a direct route, the default RFC gateway is `33NN`, derived from `sysnr`.
 The SAP GUI dispatcher commonly uses `32NN` and is not interchangeable.
 

@@ -17,6 +17,7 @@ const PROVIDER_CAPABILITIES: ReadonlySet<ConnectionProviderCapability> =
     "named-user-authentication",
     "principal-propagation",
     "saprouter-routing",
+    "connectivity-socks5-tcp",
     "connectivity-rfc-proxy",
     "connectivity-proxy-authorization",
   ]);

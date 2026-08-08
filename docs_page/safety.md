@@ -13,6 +13,9 @@
 - Do not log request bodies, returned tables, raw frames, captures, destination
   credentials, or backend identity.
 - Use a dedicated least-privilege RFC user and network allowlist.
+- For the Connectivity SOCKS5 preview, restrict the Cloud Connector TCP mapping
+  to trusted applications and enforce function access in `S_RFC`; an opaque TCP
+  mapping cannot apply Cloud Connector RFC-resource allowlists.
 - Configure finite call, pool-acquisition, pool-lifecycle, and shutdown
   deadlines. Direct connect has a fixed 10,000 ms connector bound, modern
   connection operations have a fixed 45,000 ms bound, and cancellation has no

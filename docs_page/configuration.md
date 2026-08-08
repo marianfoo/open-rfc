@@ -30,14 +30,40 @@ derived `33NN` service. `gwhost` changes the TCP gateway endpoint while
 the SAP GUI dispatcher port (`32NN`) with the RFC gateway port (`33NN`).
 
 The first beta supports this direct application-server route. Message-server,
-SAProuter, WebSocket RFC, Cloud Connector principal propagation, SNC, and
-X.509 are unsupported options, not substitutes for this
-configuration. See [Connection routes](routes.md).
+SAProuter, Connectivity SOCKS5/TCP, WebSocket RFC, Cloud Connector RFC proxy
+and principal propagation, SNC, and X.509 remain outside the supported
+contract. See [Connection routes](routes.md).
 
 !!! danger "Classic RFC is not encrypted"
     Password-authenticated classic RFC does not provide transport encryption
     or peer authentication. Use it only on a trusted private network or inside
     a separately managed protected tunnel.
+
+## BTP Connectivity SOCKS5 preview
+
+The direct route can be placed inside a Cloud Connector TCP tunnel with these
+additional fields:
+
+| Property | Source and behavior |
+|---|---|
+| `connectivity_socks5_proxy_host` | Connectivity binding `onpremise_proxy_host`; required with port and token. |
+| `connectivity_socks5_proxy_port` | Binding `onpremise_socks5_proxy_port`; do not substitute `onpremise_proxy_rfc_port`. |
+| `connectivity_socks5_access_token` | Raw Connectivity OAuth access token without `Bearer `; caller-owned and short-lived. |
+| `connectivity_socks5_location_id` | Optional unencoded Cloud Connector location ID. |
+
+Set `gwhost` and `gwserv` to the TCP mapping's virtual host and port. Keep
+`ashost` as the actual SAP application-server identity carried by CPIC. Select
+exactly one Connectivity service binding, obtain its OAuth token with the
+binding client credentials at `<token_service_url>/oauth/token`, cache it only
+until shortly before expiry, and
+create a new client or pool for the replacement token. Never log the binding,
+client secret, token, complete connection object, or inspected route plan.
+
+This preview supports named-user authentication only. It rejects the separate
+`connectivity_proxy_*` RFC-proxy route, principal propagation, SAProuter,
+message-server, and WebSocket. Cloud Connector cannot inspect a TCP mapping to
+apply an RFC resource allowlist, so the dedicated user's exact `S_RFC` role is
+the function-level enforcement point.
 
 ## Principal and authorization
 

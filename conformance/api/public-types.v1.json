@@ -3,7 +3,7 @@
   "module": "open-rfc",
   "packageContract": {
     "name": "open-rfc",
-    "version": "0.2.0",
+    "version": "0.2.2",
     "type": "module",
     "main": "./dist/cjs/index.js",
     "module": "./dist/src/index.js",
@@ -44,7 +44,7 @@
     "sha256": "3ced4556246b40fe4de22316ab1da7b6ae65ea0183a6a1d62e59fe08d293a041"
   },
   "subpathExportManifests": [],
-  "declarationCount": 64,
+  "declarationCount": 66,
   "declarations": [
     {
       "path": "dist/src/client/classic-invocation.d.ts",
@@ -78,8 +78,8 @@
     },
     {
       "path": "dist/src/compat/connection-route.d.ts",
-      "bytes": 3616,
-      "sha256": "c6e5e5caed86bf3359735181f3352343f65af44415943539141878b4a7aab865"
+      "bytes": 4115,
+      "sha256": "235381b430beac2de6658784406d64cd8c318b7f56f4d1e3611742cff8fae2a2"
     },
     {
       "path": "dist/src/compat/direct-owner-factory.d.ts",
@@ -88,8 +88,8 @@
     },
     {
       "path": "dist/src/compat/direct-rfc-session-provider.d.ts",
-      "bytes": 924,
-      "sha256": "d93cb12ca3e19ba096b98a14428f4d8f328ff02628777924b753c1ac4d0d4a34"
+      "bytes": 1188,
+      "sha256": "199a87e44d18d836ccd6838c67fdcc2239d3050e2d1198d3384348fd861832ed"
     },
     {
       "path": "dist/src/compat/message-server-direct-session-factory.d.ts",
@@ -282,6 +282,16 @@
       "sha256": "e823c19842bbbf788003e73945adf02ff0d7bff1b6d2c2de03bf62ec05569639"
     },
     {
+      "path": "dist/src/transport/connectivity-socks5-ni.d.ts",
+      "bytes": 1344,
+      "sha256": "8b91fcc0d84b0944a244deda3e38a9bd059dee50dbe1547b85bf4d9480faeda8"
+    },
+    {
+      "path": "dist/src/transport/connectivity-socks5-tunnel.d.ts",
+      "bytes": 4680,
+      "sha256": "14d687b02255c4c288df79a873ef5888e2147d61cd80a2034a37849e9863b427"
+    },
+    {
       "path": "dist/src/transport/message-server-resolver.d.ts",
       "bytes": 2406,
       "sha256": "516af9e02ea5f54a096875a5eee8f90f09c1778039b862073900a34ee94820f6"
@@ -367,5 +377,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "44b4c2af00ffa3f4e94dc2f47bbdddc9993c3020c49f7ff9757e8606f441390e"
+  "aggregateSha256": "0421ceef6fe7023aee3aa3c754054b99902a95ecfde7e56d6739c5a4e2778cf7"
 }

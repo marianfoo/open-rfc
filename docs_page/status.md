@@ -152,9 +152,10 @@ Verify a published beta against its public source commit, exact release tarball,
 release verification record, SBOM, and repository controls. These supply-chain
 checks do not expand the capability or platform support described above.
 
-Message-server, SAProuter, WebSocket RFC, Cloud Connector principal
-propagation, SNC, and X.509 are unsupported. Their presence in code or offline
-tests does not add them to a release support contract.
+Message-server, SAProuter, Connectivity SOCKS5/TCP, WebSocket RFC, Cloud
+Connector RFC proxy and principal propagation, SNC, and X.509 are unsupported.
+Their presence in code, offline tests, or a single-system spike does not add
+them to a release support contract.
 
 ## Public source contract
 

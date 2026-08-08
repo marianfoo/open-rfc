@@ -9,6 +9,14 @@ and Cloud Connector principal propagation are not supported by the beta
 contract. Do not send credentials or classic RFC traffic across an untrusted
 network.
 
+The implemented BTP Connectivity SOCKS5/TCP preview is also outside the beta
+support contract. It uses a Cloud Connector TCP mapping, not the separate RFC
+proxy. TCP mappings are opaque to Cloud Connector and therefore cannot apply
+its RFC function-module resource allowlist. Restrict the mapping to trusted
+applications and enforce exact function access with a dedicated named user's
+least-privilege `S_RFC` role. Treat the Connectivity access token, location ID,
+service-binding client secret, and complete connection object as credentials.
+
 ## Supported versions
 
 Only an exact version published in both a matching GitHub Release and npm
