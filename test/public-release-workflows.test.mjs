@@ -303,10 +303,16 @@ test("publishing happens inside the release run, not a second workflow", () => {
     releasePlease.source,
     /npm publish "\$ARTIFACT" --access public --ignore-scripts --provenance/u,
   );
-  // Publishing is not the last word: the registry is re-read and its tarball
-  // compared byte for byte against what was published.
-  assert.match(releasePlease.source, /npm pack "open-rfc@\$\{version\}"/u);
-  assert.match(releasePlease.source, /The registry tarball differs from the verified release asset/u);
+  // There is deliberately no post-publish registry check. npm verifies tarball
+  // integrity on receipt, so re-downloading to compare bytes re-checks what the
+  // publish already guaranteed — and asking the CDN-backed read path
+  // immediately after a write is a race it lost on v0.2.2, failing a run in
+  // which nothing was wrong. What replaces it is stronger and not self-issued:
+  // --provenance records a signed attestation any third party can verify with
+  // `npm audit signatures`.
+  assert.doesNotMatch(releasePlease.source, /npm view open-rfc/u);
+  assert.doesNotMatch(releasePlease.source, /npm pack "open-rfc@/u);
+  assert.match(releasePlease.source, /--provenance/u);
   assert.doesNotMatch(releasePlease.source, /npm dist-tag|NPM_TOKEN/iu);
 });
 

@@ -143,25 +143,3 @@ jobs:
         env:
           ARTIFACT: ${{ steps.artifact.outputs.path }}
         run: npm publish "$ARTIFACT" --access public --ignore-scripts --provenance
-      - name: Verify registry metadata and the downloaded tarball
-        env:
-          ARTIFACT: ${{ steps.artifact.outputs.path }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(node -p 'require("./package.json").version')"
-          observed_latest="$(npm view open-rfc dist-tags.latest)"
-          if [[ "$observed_latest" != "$version" ]]; then
-            echo "Published npm metadata differs from the verified release." >&2
-            exit 1
-          fi
-          download="${RUNNER_TEMP}/open-rfc-registry"
-          install -d -m 700 "$download"
-          npm pack "open-rfc@${version}" --ignore-scripts --pack-destination "$download" >/dev/null
-          registry=("$download"/open-rfc-*.tgz)
-          if [[ "${#registry[@]}" != "1" ||
-                "$(sha256sum "${registry[0]}" | awk '{print $1}')" !=
-                "$(sha256sum "$ARTIFACT" | awk '{print $1}')" ]]; then
-            echo "The registry tarball differs from the verified release asset." >&2
-            exit 1
-          fi
