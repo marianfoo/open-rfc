@@ -24,15 +24,10 @@ into a published version. Branch here, build here, open the pull request here.
 Plans and research notes go with the change: `docs/plans/<slug>.md` moving to
 `docs/plans/completed/<slug>.md`, and `docs/research/<slug>.md`.
 
-**The research repository is a read-only reference at `~/DEV/open-rfc`.** It
-holds what cannot be published: recorded wire evidence, fixtures, the approved
-upstream trees, live-system credentials and runbooks, and the internal decision
-records. Read it freely. Never build shipped code there, and never copy a source
-file from it into here — this repository is authoritative for everything under
-`src/`.
-
-Live SAP spikes must run over there, because the credentials and evidence tooling
-are there. The feature still lands here.
+A maintainer may have further evidence sources configured locally. **If
+`CLAUDE.local.md` exists in this checkout, read it first** — it names what is
+available and the rules for using it. If it does not exist, everything below
+works from this repository alone.
 
 ---
 
@@ -65,46 +60,32 @@ evidence and stop.
 
 ## Research sources
 
-`~/DEV/*` is a **read-only reference** — never modify it.
-
-### Here
-
 | Source | Where | Use it for |
 |--------|-------|------------|
 | **Project rules** | `AGENTS.md` | The build, test and contribution rules that apply to this change |
 | **Architecture** | `docs/architecture.md` | Layer boundaries, ownership invariants, the implementation ladder, the evidence hierarchy. Read before proposing anything that cuts across it |
 | **The recurring bug class** | `docs/recurring-bug-class.md` | The decoder mistake this project has made six times. A new decoder gets reviewed against it |
+| **Capability boundary** | `docs_page/status.md`, `docs_page/policies.md`, `conformance/` | What is claimed to work, on which release. A feature claim must land here truthfully |
 | **Completed plans** | `docs/plans/completed/` | How similar features were actually researched, built and verified |
+| **Prior research** | `docs/research/` | Whether this was already investigated. Several questions have a recorded "not feasible, here is why" |
 | **The published surface** | `src/index.ts`, `src/compat/`, `docs_page/api.md` | Exactly what is exported today, and what a change would move |
+| **SAP docs & Notes** | `sap-docs` and `sap-notes` MCP tools | Official documentation and SAP Notes. A Note that changes behaviour per release is decisive and must be cited by number |
 
-### In the research repository (`~/DEV/open-rfc`)
-
-| Source | Where | Use it for |
-|--------|-------|------------|
-| **Capability boundary** | `docs/compatibility-matrix.md`, `docs/live-conformance-matrix.md`, `conformance/capabilities.v1.json` | What is claimed to work, on which release, with what evidence. A feature claim must land here truthfully |
-| **Prior research** | `docs/*.md` — wire observations, live qualifications, feasibility studies (e.g. `fast-serialization-wire-observations.md`, `websocket-fast-serialization-feasibility.md`) | Whether this was already investigated. Several features have a recorded "not feasible, here is why" |
-| **Recorded evidence** | `conformance/` — upstream cases, offline corpora, evidence adapters | Captured payloads. The cheapest way to answer "does the wire do this" |
-| **Fixtures** | `fixtures/`, `test/fixtures/` | Replayable wire data for an offline spike |
-| **Approved upstream only** | `upstream/node-rfc` @ `9ccc30b7` and `upstream/PyRFC` @ `5d4a20a5` — **these two and no others** | The compatibility surface and how the reference implementations expose the same concept. Every other tree under `upstream/` is off limits; `pysap` is GPL-2.0 and opening it contaminates a clean-room position |
-| **Live SAP systems** | `.env.live-s4hana-2023` (S/4HANA 2023), `.env.live-netweaver-750` (NetWeaver 7.50); `npm run test:e2e`, `npm run test:live` | Ground truth, and the deciding source when docs and code disagree. Both releases matter — a capability present on one is not a capability |
-
-**SAP docs & Notes** — the `sap-docs` and `sap-notes` MCP tools, from either
-repository. A Note that changes behaviour per release is decisive and must be
-cited by number.
+Anything further is maintainer-local; see `CLAUDE.local.md` if it exists.
 
 ---
 
 ## Phase 1 — deep research
 
-1. **Has this been asked before?** Search `docs/` in both repositories and the
-   git history. A recorded "we considered this and rejected it" is the fastest
+1. **Has this been asked before?** Search `docs/`, any source named in
+   `CLAUDE.local.md`, and the git history. A recorded "we considered this and rejected it" is the fastest
    possible answer — but check whether its premise still holds. One deliberate
    decision here was correct when written and false a month later, and nobody
    re-checked it for three weeks.
 2. **What does the wire actually do?** Look for captured payloads in
    `conformance/` and `fixtures/` before assuming. If the capability has never
    been observed, say so plainly — that is the finding.
-3. **How do node-rfc and PyRFC expose the same concept?** Only those two trees.
+3. **How do the declared reference implementations expose the same concept?**
    This matters for naming and for the compatibility facade.
 4. **What do SAP's own docs and Notes say?** Use the MCP tools. A Note that
    changes behaviour per release is decisive and must be cited.
@@ -133,9 +114,9 @@ If Phase 1 could not establish wire support from recorded evidence, spike it
 
 - Offline first, against fixtures. Most questions are answerable without a live
   call, and an offline spike can be iterated.
-- Live only if offline cannot answer it: **read-only**, one run, both releases if
-  the answer might differ. Never replay an uncertain or timed-out call. Live runs
-  happen in the research repository.
+- Live only if offline cannot answer it, and only where a live system is
+  configured: **read-only**, one run, both supported releases if the answer might
+  differ. Never replay an uncertain or timed-out call.
 - Record what you found in `docs/research/<slug>.md` — the question, the method,
   the result, and what it does **not** establish. A spike that answers a narrower
   question than it appears to is worse than none.
@@ -209,11 +190,11 @@ npm run test:public
   changed. Conformance aborts the suite otherwise.
 - `npm run lint`, and `npm run check:docs:public` if documentation changed.
   `npm run docs:site:check` is a CI-only check — see `AGENTS.md` for why.
-- Update the capability record in the research repository —
-  `docs/compatibility-matrix.md` and `conformance/capabilities.v1.json` — so the
-  claim matches what is proven, on the releases it is proven on.
-- Live verification if the feature is on a live path: `npm run test:e2e`, once,
-  on both releases if their behaviour could differ.
+- Update the published capability record — `docs_page/status.md` and
+  `docs_page/policies.md` — so the claim matches what is proven, on the releases
+  it is proven on. Maintainers keep a fuller record; see `CLAUDE.local.md`.
+- Live verification if the feature is on a live path: once, on both supported
+  releases if their behaviour could differ.
 
 ### Run only what your change can break
 
@@ -255,7 +236,9 @@ Sign every commit — `git commit -s`. The DCO check is required.
 - Read-only SAP calls by default. Ask before installing repository objects,
   mutating fixtures, or running update-task work — those change a real system.
 - **Never replay an uncertain or timed-out live call.**
-- Never open `upstream/` trees other than `node-rfc` and `PyRFC`.
+- Reference implementations are limited to the ones `CONTRIBUTING.md` and
+  `THIRD_PARTY_NOTICES.md` already declare. Do not introduce a new one without
+  declaring it and its license.
 - Publishing, repository visibility, GitHub releases and `npm publish` are the
   owner's alone.
 
@@ -268,9 +251,9 @@ Sign every commit — `git commit -s`. The DCO check is required.
   health.
 - **A control that cannot fail proves nothing.** Remove something the assertion
   matches; do not append something it ignores.
-- **Match on context, not vocabulary.** A scan for private content flagged two
-  documents for the word "decompilation" — which appeared in the sentence
-  prohibiting it. A keyword hit orders the reading queue; it is not a finding.
+- **Match on context, not vocabulary.** A content scan once flagged two files
+  for a term that appeared in them only inside the sentence forbidding it. A
+  keyword hit orders the reading queue; it is not a finding.
 - **State the scope of a query and do not exceed it.** A search scoped to one
   library was used to conclude something about every obligation, and missed a
   whole category.
