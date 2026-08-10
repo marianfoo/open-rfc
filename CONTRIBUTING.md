@@ -1,8 +1,34 @@
 # Contributing
 
-Thank you for helping improve open-rfc. Before changing code, read the public
-support boundary in `README.md`, the end-user documentation in `docs_page/`,
-and the architecture and test guidance in `AGENTS.md`.
+Thank you for helping improve open-rfc. Participation is covered by the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+Before changing code, read the public support boundary in `README.md`, the
+end-user documentation in `docs_page/`, and the architecture and test guidance
+in `AGENTS.md`.
+
+**Reporting that it worked is a contribution.** The release tests cover Ubuntu
+24.04 with Node.js 22 and 24 against two SAP release families. The package is
+portable JavaScript with no native addon, so it should work much more widely —
+but an unqualified platform only becomes a qualified one when somebody reports
+what they tried. Use the **Platform report** issue template, for a success as
+readily as a failure.
+
+## Using a coding agent
+
+If you would rather point an AI agent at a problem than debug it yourself,
+this repository ships the process the maintainer uses:
+
+- [`.claude/commands/deep-bug.md`](.claude/commands/deep-bug.md) — find the real
+  root cause before changing anything, then fix it with a test that was seen to
+  fail.
+- [`.claude/commands/deep-feature.md`](.claude/commands/deep-feature.md) —
+  establish whether a capability fits this architecture before designing it.
+
+Claude Code runs them as `/deep-bug` and `/deep-feature`. For Codex or another
+agent, say `follow .claude/commands/deep-bug.md` — nothing in either file
+depends on which agent reads it. Both encode the redaction rules below, so an
+agent following them will not put SAP data in a pull request.
 
 Two documents explain why the code is shaped the way it is, which is the
 context most likely to be missing from an outside pull request:

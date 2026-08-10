@@ -1,0 +1,110 @@
+name: Platform report
+description: Tell us it worked (or did not) on a platform or SAP release we have not qualified.
+labels: ["platform-report", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The release tests run on Ubuntu 24.04 x64 with Node.js 22 and 24, and
+        the beta support contract qualifies S/4HANA 2023 and NetWeaver 7.50.
+        The package is portable JavaScript with no native addon, so it *should*
+        work far more widely — but "should" is not evidence.
+
+        **A report that it simply worked is as valuable as a bug report.** It is
+        the only way an unqualified platform ever becomes a qualified one.
+
+        **Never paste credentials, hostnames, SAP system/client/user
+        identifiers, tokens, business parameters or results, raw exception
+        fields, RFC traces, packet captures, or `.env` files.** Shape and status
+        only, never content.
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction
+      options:
+        - label: This report contains no credentials, endpoints, system identities, business data, or raw traces.
+          required: true
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - worked
+        - worked with a workaround
+        - did not work
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system, architecture, and Node.js version
+      placeholder: "macOS 15.3, arm64, Node 24.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: sap
+    attributes:
+      label: SAP release family
+      description: The release family only — never the system identity.
+      placeholder: "S/4HANA 2025"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: route
+    attributes:
+      label: Route
+      options:
+        - direct application server
+        - message server (load balancing)
+        - SAProuter
+        - BTP Connectivity / Cloud Connector
+        - through a @sap/cds-rfc destination
+    validations:
+      required: true
+
+  - type: dropdown
+    id: consumer
+    attributes:
+      label: Consumer shape
+      options:
+        - standalone open-rfc API
+        - archived node-rfc API (import change or npm alias)
+        - unchanged @sap/cds-rfc with npm override
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: open-rfc version
+      placeholder: "0.2.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: exercised
+    attributes:
+      label: What did you exercise?
+      description: >-
+        Which value types, and whether you got past a single successful call —
+        errors, cancellation, pools, transactions. A report that only says
+        `RFC_PING` succeeded is still welcome; just say so, so it is not read as
+        broader than it is.
+      placeholder: |
+        Metadata lookup, one function with STRING + DEC(15,2) + a 200-row table,
+        one deliberate timeout, pool of 4. Did not test transactions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything surprising
+      description: Workarounds needed, unexpected errors, or nothing at all.
+    validations:
+      required: false

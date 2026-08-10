@@ -6,6 +6,11 @@
 .direnv/
 .npmrc
 
+# Maintainer-local agent context. Names local paths and evidence sources that
+# do not exist for anyone else, so it must never be committed.
+CLAUDE.local.md
+.claude/settings.local.json
+
 # Dependencies and generated output
 node_modules/
 dist/
