@@ -42,7 +42,7 @@ Save this as `rfc-smoke.mjs`, provide the four required environment variables,
 and run `node rfc-smoke.mjs`. It makes one read-only echo call and closes the
 client. The example reports only fixed success or failure text.
 
-<!-- open-rfc-doc-example id="readme-quick-start" runtime="esm" outcome="missing-connection" sha256="27f0daa2f1729ef1baa29944f89bdaa009da2750fa9926e527f302c5740d0079" -->
+<!-- open-rfc-doc-example id="readme-quick-start" runtime="esm" outcome="missing-connection" sha256="1264e4ed0f1e45915912f4ccd5f31a39caddbd92d4891ed73bf8138556539417" -->
 ```js
 import { Client } from "open-rfc";
 
@@ -67,9 +67,11 @@ if (missing.length > 0) {
     { timeout: 15 },
   );
 
+  let opened = false;
   let failed = false;
   try {
     await client.open();
+    opened = true;
     await client.call("STFC_CONNECTION", {
       REQUTEXT: "hello from open-rfc",
     });
@@ -77,7 +79,7 @@ if (missing.length > 0) {
     failed = true;
     console.error("RFC call failed; consult private, redacted diagnostics.");
   } finally {
-    if (client.alive) {
+    if (opened) {
       try {
         await client.close();
       } catch {

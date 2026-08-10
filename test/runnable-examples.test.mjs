@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -25,11 +32,11 @@ function sanitizedEnvironment() {
   };
 }
 
-function runExample(relativePath) {
+function runExample(relativePath, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [relativePath], {
-      cwd: PROJECT_ROOT,
-      env: sanitizedEnvironment(),
+      cwd: options.cwd ?? PROJECT_ROOT,
+      env: options.env ?? sanitizedEnvironment(),
       stdio: ["ignore", "pipe", "pipe"],
     });
     const timeout = setTimeout(() => child.kill("SIGKILL"), 5_000);
@@ -84,6 +91,64 @@ test("the complete documentation examples match the runnable source files", () =
       "",
     );
     assert.equal(extracted.get(id), source);
+  }
+});
+
+test("the README closes an opened client after the call faults it", async () => {
+  const sourcePath = "README.md";
+  const documentation = readFileSync(join(PROJECT_ROOT, sourcePath), "utf8");
+  const example = extractDocumentationExamples(documentation, sourcePath).find(
+    ({ id }) => id === "readme-quick-start",
+  );
+  assert.ok(example);
+
+  const temporary = mkdtempSync(join(tmpdir(), "open-rfc-readme-cleanup-"));
+  const packageRoot = join(temporary, "node_modules", "open-rfc");
+  const marker = join(temporary, "closed.txt");
+  try {
+    mkdirSync(packageRoot, { recursive: true });
+    writeFileSync(
+      join(packageRoot, "package.json"),
+      JSON.stringify({ exports: "./index.mjs", type: "module" }),
+    );
+    writeFileSync(
+      join(packageRoot, "index.mjs"),
+      [
+        'import { writeFileSync } from "node:fs";',
+        "export class Client {",
+        "  alive = false;",
+        "  async open() { this.alive = true; }",
+        "  async call() { this.alive = false; throw new Error(\"synthetic fault\"); }",
+        "  async close() { writeFileSync(process.env.OPEN_RFC_CLOSE_MARKER, \"closed\\n\"); }",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    const script = join(temporary, "rfc-smoke.mjs");
+    writeFileSync(script, `${example.source}\n`);
+
+    const result = await runExample(script, {
+      cwd: temporary,
+      env: {
+        ...sanitizedEnvironment(),
+        OPEN_RFC_CLOSE_MARKER: marker,
+        SAP_ASHOST: "example.invalid",
+        SAP_CLIENT: "001",
+        SAP_PASSWD: "synthetic",
+        SAP_USER: "synthetic",
+      },
+    });
+
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.equal(
+      result.stderr,
+      "RFC call failed; consult private, redacted diagnostics.\n",
+    );
+    assert.equal(readFileSync(marker, "utf8"), "closed\n");
+  } finally {
+    rmSync(temporary, { force: true, recursive: true });
   }
 });
 
