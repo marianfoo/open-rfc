@@ -35,6 +35,8 @@ import {
 import type { RfcFunctionInterface } from "../metadata/rfc-function-interface.js";
 import type { RfcStructureDefinition } from "../metadata/rfc-structure-definition.js";
 import { NiTransportError } from "../transport/ni-socket.js";
+import { ConnectivitySocks5Error } from
+  "../transport/connectivity-socks5-tunnel.js";
 import { SapRouterTransportError } from "../transport/saprouter-tunnel.js";
 import {
   snapshotClassicInt8Mode,
@@ -201,6 +203,33 @@ export function projectNodeRfcPublicError(error: unknown): unknown {
         ? RFCErrorCode.RFC_TIMEOUT
         : RFCErrorCode.RFC_COMMUNICATION_FAILURE,
       codeString: timeout ? "RFC_TIMEOUT" : "RFC_COMMUNICATION_FAILURE",
+      key: cause.code,
+    });
+  }
+  if (cause instanceof ConnectivitySocks5Error) {
+    const canceled = cause.code === "CONNECTIVITY_SOCKS5_ABORTED";
+    const timeout = cause.code === "CONNECTIVITY_SOCKS5_CONNECT_TIMEOUT" ||
+      cause.code === "CONNECTIVITY_SOCKS5_TIMEOUT";
+    const code = canceled
+      ? RFCErrorCode.RFC_CANCELED
+      : timeout
+        ? RFCErrorCode.RFC_TIMEOUT
+        : RFCErrorCode.RFC_COMMUNICATION_FAILURE;
+    const codeString = canceled
+      ? "RFC_CANCELED"
+      : timeout
+        ? "RFC_TIMEOUT"
+        : "RFC_COMMUNICATION_FAILURE";
+    const message = canceled
+      ? "Connectivity SOCKS5 setup was canceled."
+      : timeout
+        ? "Connectivity SOCKS5 setup timed out."
+        : "Connectivity SOCKS5 setup failed.";
+    return new RFCError(message, {
+      name: "RfcLibError",
+      group: 4,
+      code,
+      codeString,
       key: cause.code,
     });
   }

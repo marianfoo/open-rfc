@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { inspect } from "node:util";
 
 import {
   ABAPError,
@@ -8,6 +9,7 @@ import {
   EnumSncQop,
   EnumTrace,
   NodeRfcError,
+  Pool,
   RFCError,
   RFCErrorCode,
   RFC_RC,
@@ -29,6 +31,42 @@ import {
   type RfcTableOfVariables,
   type RfcVariable,
 } from "../src/index.js";
+
+test("Client and Pool config snapshots do not serialize Connectivity Location IDs", () => {
+  const locationId = "location-fixture";
+  const connectionParameters = {
+    ashost: "application.example.invalid",
+    gwhost: "virtual-gateway.example.invalid",
+    gwserv: "sapgw00",
+    sysnr: "00",
+    client: "100",
+    user: "fixture-user",
+    passwd: "fixture-pw",
+    connectivity_socks5_proxy_host: "connectivity.example.invalid",
+    connectivity_socks5_proxy_port: 20_004,
+    connectivity_socks5_access_token: "connectivity-token-fixture",
+    connectivity_socks5_location_id: locationId,
+  };
+  const client = new Client(connectionParameters);
+  const pool = new Pool({ connectionParameters });
+
+  for (const [config, snapshot] of [
+    [client.config, client.config.connectionParameters],
+    [pool.config, pool.connectionParameters],
+    [pool.poolConfiguration, pool.poolConfiguration.connectionParameters],
+  ] as const) {
+    assert.equal(snapshot.connectivity_socks5_location_id, locationId);
+    assert.equal(
+      Object.getOwnPropertyDescriptor(
+        snapshot,
+        "connectivity_socks5_location_id",
+      )?.enumerable,
+      false,
+    );
+    assert.equal(JSON.stringify(config).includes(locationId), false);
+    assert.equal(inspect(config).includes(locationId), false);
+  }
+});
 
 test("exports the archived node-rfc enum surface with exact values", () => {
   assert.equal(RFC_RC, RFCErrorCode);

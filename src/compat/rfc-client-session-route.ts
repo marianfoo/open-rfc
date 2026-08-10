@@ -30,6 +30,10 @@ const RFC_CLIENT_ROUTE_PARAMETERS = Object.freeze([
   "connectivity_proxy_authentication",
   "connectivity_subaccount",
   "connectivity_location_id",
+  "connectivity_socks5_proxy_host",
+  "connectivity_socks5_proxy_port",
+  "connectivity_socks5_access_token",
+  "connectivity_socks5_location_id",
   "business_user_token",
 ] as const);
 

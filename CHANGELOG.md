@@ -4,6 +4,19 @@ All notable changes to `open-rfc` are recorded here. The project follows
 [Semantic Versioning](https://semver.org/) for the declared public surface once
 that surface is released.
 
+## Unreleased
+
+### Added
+
+- An unsupported direct named-user preview for classic RFC through the BTP
+  Connectivity SOCKS5 endpoint and an explicit Cloud Connector TCP mapping.
+
+### Fixed
+
+- The classic compatibility snapshot now retains Connectivity route parameters
+  so unsupported RFC-proxy requests fail closed instead of silently selecting a
+  direct connection.
+
 ## [0.2.2](https://github.com/marianfoo/open-rfc/compare/v0.2.1...v0.2.2) (2026-08-07)
 
 

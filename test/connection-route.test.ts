@@ -288,6 +288,72 @@ test("plans Connectivity proxy authorization, tenant, and location fields immuta
   assert.doesNotMatch(JSON.stringify(plan), /proxy-secret/u);
 });
 
+test("plans a distinct Connectivity SOCKS5 route and redacts its credentials", () => {
+  const accessToken = ["connectivity", "access", "fixture"].join("-");
+  const source: Record<string, unknown> = {
+    ...namedUser,
+    ashost: "application.internal",
+    gwhost: "virtual-gateway.invalid",
+    gwserv: "3300",
+    connectivity_socks5_proxy_host: "connectivity-proxy.internal",
+    connectivity_socks5_proxy_port: "20004",
+    connectivity_socks5_access_token: accessToken,
+    connectivity_socks5_location_id: "location-a",
+  };
+  const plan = planConnectionRoute(source);
+  source.connectivity_socks5_access_token = "changed";
+
+  assert.deepEqual(plan.connectivitySocks5, {
+    host: "connectivity-proxy.internal",
+    port: 20_004,
+    accessToken,
+    locationId: "location-a",
+  });
+  assert.ok(Object.isFrozen(plan.connectivitySocks5));
+  assert.deepEqual(plan.requiredProviderCapabilities, [
+    "direct-rfc-transport",
+    "named-user-authentication",
+    "connectivity-socks5-tcp",
+  ]);
+  assert.doesNotMatch(inspect(plan, { depth: null }), /connectivity-access-fixture|location-a/u);
+  assert.doesNotMatch(JSON.stringify(plan), /connectivity-access-fixture|location-a/u);
+});
+
+test("fails closed for partial, prefixed, or combined Connectivity SOCKS5 routes", () => {
+  const complete = {
+    connectivity_socks5_proxy_host: "connectivity-proxy.internal",
+    connectivity_socks5_proxy_port: 20_004,
+    connectivity_socks5_access_token: ["connectivity", "access", "fixture"].join("-"),
+  };
+  const direct = { ...namedUser, ashost: "application.internal" };
+  const cases: ReadonlyArray<readonly [Record<string, unknown>, RegExp]> = [
+    [{ ...direct, connectivity_socks5_proxy_host: "proxy.internal" }, /must be supplied together/u],
+    [{ ...direct, connectivity_socks5_proxy_port: 20_004 }, /must be supplied together/u],
+    [{ ...direct, connectivity_socks5_access_token: "token" }, /must be supplied together/u],
+    [{ ...direct, connectivity_socks5_location_id: "location-a" }, /requires the complete Connectivity SOCKS5 route/u],
+    [{ ...direct, ...complete, connectivity_socks5_access_token: "Bearer token" }, /raw token without a Bearer prefix/u],
+    [{
+      ...direct,
+      ...complete,
+      connectivity_proxy_host: "rfc-proxy.internal",
+      connectivity_proxy_port: 20_001,
+    }, /RFC proxy and Connectivity SOCKS5 routes cannot be combined/u],
+    [{ ...direct, ...complete, saprouter: "/H/router.example.test/H/" }, /cannot be combined with SAProuter/u],
+    [{
+      ...namedUser,
+      mshost: "message.internal",
+      sysid: "A4H",
+      group: "PUBLIC",
+      ...complete,
+    }, /only for a direct ashost route/u],
+    [{ ...namedUser, wshost: "websocket.internal", ...complete }, /only for a direct ashost route/u],
+  ];
+
+  for (const [input, expected] of cases) {
+    assert.throws(() => planConnectionRoute(input), expected);
+  }
+});
+
 test("plans business-user principal propagation without named-user credentials", () => {
   const token = ["business-user-token", "secret"].join("-");
   const plan = planConnectionRoute({

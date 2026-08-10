@@ -4,7 +4,10 @@ import test from "node:test";
 import type { DirectCpicTransportFactory } from "../src/client/direct-cpic-session.js";
 import type { DirectDestinationOwner } from "../src/destination/direct-destination-owner.js";
 import { createDirectRfcSessionProvider } from "../src/compat/direct-rfc-session-provider.js";
-import { planConnectionRoute } from "../src/compat/connection-route.js";
+import {
+  planConnectionRoute,
+  type ConnectivitySocks5Plan,
+} from "../src/compat/connection-route.js";
 import type {
   RFCClientDestinationOwnerFactoryContext,
 } from "../src/compat/rfc-client-owner-registry.js";
@@ -116,6 +119,64 @@ test("rejects SAProuter before owner creation when no transport is composed", as
   assert.equal(ownerCreations, 0);
 });
 
+test("advertises and injects Connectivity SOCKS5 only with a concrete transport", async () => {
+  const contexts: Array<RFCClientDestinationOwnerFactoryContext | undefined> = [];
+  const proxyPlans: ConnectivitySocks5Plan[] = [];
+  const markerTransport = (async () => {
+    throw new Error("marker transport must stay lazy");
+  }) as DirectCpicTransportFactory;
+  const provider = createDirectRfcSessionProvider({
+    operationTimeoutMs: 1_000,
+    ownerFactory(_connection, context) {
+      contexts.push(context);
+      return fakeOwner([]);
+    },
+    connectivitySocks5TransportFactory(plan) {
+      proxyPlans.push(plan);
+      return markerTransport;
+    },
+  });
+  assert.deepEqual(provider.capabilities, [
+    "direct-rfc-transport",
+    "named-user-authentication",
+    "connectivity-socks5-tcp",
+  ]);
+
+  const session = await provider.open(directPlan({
+    gwhost: "virtual-gateway.invalid",
+    connectivity_socks5_proxy_host: "proxy.fixture.invalid",
+    connectivity_socks5_proxy_port: 20_004,
+    connectivity_socks5_access_token: ["connectivity", "token", "fixture"].join("-"),
+    connectivity_socks5_location_id: "location-a",
+  }));
+  assert.equal(proxyPlans.length, 1);
+  assert.equal(proxyPlans[0]?.host, "proxy.fixture.invalid");
+  assert.equal(proxyPlans[0]?.port, 20_004);
+  assert.equal(proxyPlans[0]?.locationId, "location-a");
+  assert.equal(contexts[0]?.session?.transportFactory, markerTransport);
+  await session.close();
+});
+
+test("rejects Connectivity SOCKS5 before owner creation when no transport is composed", async () => {
+  let ownerCreations = 0;
+  const provider = createDirectRfcSessionProvider({
+    operationTimeoutMs: 1_000,
+    ownerFactory() {
+      ownerCreations += 1;
+      return fakeOwner([]);
+    },
+  });
+  await assert.rejects(
+    provider.open(directPlan({
+      connectivity_socks5_proxy_host: "proxy.fixture.invalid",
+      connectivity_socks5_proxy_port: 20_004,
+      connectivity_socks5_access_token: "fixture-token",
+    })),
+    /does not implement Connectivity SOCKS5/u,
+  );
+  assert.equal(ownerCreations, 0);
+});
+
 test("rejects invalid route transport composition before owner creation", async () => {
   let ownerCreations = 0;
   const provider = createDirectRfcSessionProvider({
@@ -130,6 +191,43 @@ test("rejects invalid route transport composition before owner creation", async 
     provider.open(directPlan({ saprouter: ROUTE })),
     /must return a transport function/u,
   );
+  assert.equal(ownerCreations, 0);
+});
+
+test("rejects a forged SAProuter plus Connectivity plan before transport I/O", async () => {
+  let transportCreations = 0;
+  let ownerCreations = 0;
+  const provider = createDirectRfcSessionProvider({
+    operationTimeoutMs: 1_000,
+    ownerFactory() {
+      ownerCreations += 1;
+      return fakeOwner([]);
+    },
+    sapRouterTransportFactory() {
+      transportCreations += 1;
+      return (async () => undefined) as never;
+    },
+    connectivitySocks5TransportFactory() {
+      transportCreations += 1;
+      return (async () => undefined) as never;
+    },
+  });
+  const sapRouterPlan = directPlan({ saprouter: ROUTE });
+  const socksPlan = directPlan({
+    connectivity_socks5_proxy_host: "proxy.fixture.invalid",
+    connectivity_socks5_proxy_port: 20_004,
+    connectivity_socks5_access_token: "fixture-token",
+  });
+  const forged = Object.freeze({
+    ...sapRouterPlan,
+    connectivitySocks5: socksPlan.connectivitySocks5,
+  });
+
+  await assert.rejects(
+    provider.open(forged),
+    /cannot combine SAProuter and Connectivity SOCKS5/u,
+  );
+  assert.equal(transportCreations, 0);
   assert.equal(ownerCreations, 0);
 });
 

@@ -580,6 +580,7 @@ test("production provider advertises only its connected route implementations", 
     "direct-rfc-transport",
     "named-user-authentication",
     "saprouter-routing",
+    "connectivity-socks5-tcp",
     "message-server-rfc-transport",
     "message-server-saprouter-routing",
   ]);

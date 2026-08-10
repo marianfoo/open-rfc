@@ -22,6 +22,10 @@ These rows describe the support boundary of an exact published 0.x release.
   supported only when the public
   [release status](docs_page/status.md) includes them in the published artifact's
   documented boundary and names the checks performed.
+- The BTP Connectivity SOCKS5/TCP named-user route is an unsupported preview.
+  A successful Cloud Connector TCP call does not promote it into the beta
+  boundary and does not imply support for the separate RFC proxy or principal
+  propagation.
 
 The public [release status](docs_page/status.md) is the authoritative support
 boundary for a published version. Code that is not named there is not a
