@@ -205,7 +205,10 @@ parameters, returned tables, raw frames, or backend identity.
   a Cloud Connector TCP mapping to the SAP gateway, and the explicit
   `connectivity_socks5_*` parameters documented on the site. It is not the
   separate Connectivity RFC proxy and cannot enforce Cloud Connector
-  function-module resources.
+  function-module resources. On Cloud Foundry, the Cloud Connector tunnel is a
+  subaccount-level trust boundary; its Trusted Applications allowlist is a
+  Neo-only control. Restrict Connectivity service-binding access and enforce
+  the function boundary with the SAP user's exact `S_RFC` role.
 - WebSocket RFC business calls, Cloud Connector principal propagation, SNC,
   and X.509 are not supported and fail closed before business I/O when their
   required provider or authentication capability is absent.

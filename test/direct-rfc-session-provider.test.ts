@@ -194,6 +194,43 @@ test("rejects invalid route transport composition before owner creation", async 
   assert.equal(ownerCreations, 0);
 });
 
+test("rejects a forged SAProuter plus Connectivity plan before transport I/O", async () => {
+  let transportCreations = 0;
+  let ownerCreations = 0;
+  const provider = createDirectRfcSessionProvider({
+    operationTimeoutMs: 1_000,
+    ownerFactory() {
+      ownerCreations += 1;
+      return fakeOwner([]);
+    },
+    sapRouterTransportFactory() {
+      transportCreations += 1;
+      return (async () => undefined) as never;
+    },
+    connectivitySocks5TransportFactory() {
+      transportCreations += 1;
+      return (async () => undefined) as never;
+    },
+  });
+  const sapRouterPlan = directPlan({ saprouter: ROUTE });
+  const socksPlan = directPlan({
+    connectivity_socks5_proxy_host: "proxy.fixture.invalid",
+    connectivity_socks5_proxy_port: 20_004,
+    connectivity_socks5_access_token: "fixture-token",
+  });
+  const forged = Object.freeze({
+    ...sapRouterPlan,
+    connectivitySocks5: socksPlan.connectivitySocks5,
+  });
+
+  await assert.rejects(
+    provider.open(forged),
+    /cannot combine SAProuter and Connectivity SOCKS5/u,
+  );
+  assert.equal(transportCreations, 0);
+  assert.equal(ownerCreations, 0);
+});
+
 test("rejects unsupported Connectivity before route or owner I/O", async () => {
   let routeCreations = 0;
   let ownerCreations = 0;

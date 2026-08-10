@@ -301,6 +301,29 @@ test("encodes an IPv4 target without resolving it and omits location ID", async 
   assert.equal(established.initialData.length, 0);
 });
 
+test("accepts an RFC 1928 IPv6 bound address in a successful reply", async () => {
+  const socket = new FakeSocket();
+  const pending = establishConnectivitySocks5Tunnel(
+    socket,
+    admitConnectivitySocks5Config(baseConfig()),
+  );
+  socket.data(Buffer.from([0x05, 0x80]));
+  socket.data(Buffer.from([0x01, 0x00]));
+  socket.data(Buffer.concat([
+    Buffer.from([0x05, 0x00, 0x00, 0x04]),
+    Buffer.alloc(16),
+    Buffer.from([0x00, 0x00]),
+    Buffer.from([0x00, 0x00, 0x00, 0x03, 0x52, 0x46, 0x43]),
+  ]));
+
+  const established = await pending;
+  assert.deepEqual(
+    established.initialData,
+    Buffer.from([0x00, 0x00, 0x00, 0x03, 0x52, 0x46, 0x43]),
+  );
+  assert.equal(socket.destroyCalls, 0);
+});
+
 test("connects a real TCP stream and completes the documented handshake", async (t) => {
   const server = createServer((peer) => {
     let phase = 0;
@@ -523,11 +546,11 @@ test("maps proxy rejections and malformed responses to redaction-safe errors", a
     ],
     "CONNECTIVITY_SOCKS5_PROTOCOL_ERROR",
   ));
-  await t.test("unsupported IPv6 reply", () => rejectAfter(
+  await t.test("unsupported address type", () => rejectAfter(
     [
       Buffer.from([0x05, 0x80]),
       Buffer.from([0x01, 0x00]),
-      Buffer.from([0x05, 0x00, 0x00, 0x04]),
+      Buffer.from([0x05, 0x00, 0x00, 0x7f]),
     ],
     "CONNECTIVITY_SOCKS5_PROTOCOL_ERROR",
   ));

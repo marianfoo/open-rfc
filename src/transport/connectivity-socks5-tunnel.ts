@@ -11,6 +11,7 @@ const JWT_AUTHENTICATION_VERSION = 0x01;
 const CONNECT_COMMAND = 0x01;
 const DOMAIN_ADDRESS = 0x03;
 const IPV4_ADDRESS = 0x01;
+const IPV6_ADDRESS = 0x04;
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_BUFFERED_BYTES = 16_384;
@@ -682,6 +683,11 @@ export function establishConnectivitySocks5Tunnel(
           const responseLength = 7 + domainLength;
           if (buffered.length < responseLength) return;
           succeed(responseLength);
+          return;
+        }
+        if (addressType === IPV6_ADDRESS) {
+          if (buffered.length < 22) return;
+          succeed(22);
           return;
         }
         fail(new ConnectivitySocks5Error(

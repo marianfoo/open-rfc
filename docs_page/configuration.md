@@ -53,17 +53,54 @@ additional fields:
 
 Set `gwhost` and `gwserv` to the TCP mapping's virtual host and port. Keep
 `ashost` as the actual SAP application-server identity carried by CPIC. Select
-exactly one Connectivity service binding, obtain its OAuth token with the
-binding client credentials at `<token_service_url>/oauth/token`, cache it only
-until shortly before expiry, and
-create a new client or pool for the replacement token. Never log the binding,
-client secret, token, complete connection object, or inspected route plan.
+exactly one Connectivity service binding. For a client-secret binding, obtain
+its OAuth token at `<token_service_url>/oauth/token`, pass the raw token without
+`Bearer `, cache it only until shortly before expiry, and create a new client or
+pool for the replacement token. X.509/mTLS service-binding credentials require
+consumer-side token acquisition that is not provided by open-rfc or the ARC-1
+sample. Never log the binding, client secret, private key, token, complete
+connection object, or inspected route plan.
+
+Configure the Cloud Connector side as follows:
+
+1. Connect Cloud Connector to the same BTP subaccount used by the CF
+   application. If that connection has a Location ID, pass that exact value as
+   `connectivity_socks5_location_id`.
+2. Add an **ABAP System** mapping with protocol **TCP**, not RFC or RFC SNC.
+   Set the internal host to the SAP application server reachable from Cloud
+   Connector and the internal port to its gateway port `33NN`.
+3. Choose one virtual host and one virtual port for this mapping. Do not expose
+   a host or port range. Use those exact virtual values as `gwhost` and
+   `gwserv`; they are not the internal SAP hostname and port.
+4. Create and bind one BTP Connectivity service instance to the application,
+   then restage it. Read `onpremise_proxy_host` and
+   `onpremise_socks5_proxy_port` from that binding; never substitute
+   `onpremise_proxy_rfc_port`.
+5. Keep `ashost`, `sysnr`, `client`, `user`, `passwd`, and `lang` set for the
+   actual SAP application-server identity and named-user logon. The TCP tunnel
+   changes the network route, not the RFC authentication model.
+
+The CF trust boundary is the connected subaccount and the identities permitted
+to obtain or consume Connectivity service-binding credentials. Cloud
+Connector's Trusted Applications allowlist applies to Neo, not CF. Use
+separate production and non-production subaccounts/Cloud Connector
+configurations, restrict CF org/space roles and service-binding operations,
+and keep the mapping private to the smallest deployment scope available.
 
 This preview supports named-user authentication only. It rejects the separate
 `connectivity_proxy_*` RFC-proxy route, principal propagation, SAProuter,
 message-server, and WebSocket. Cloud Connector cannot inspect a TCP mapping to
 apply an RFC resource allowlist, so the dedicated user's exact `S_RFC` role is
-the function-level enforcement point.
+the function-level enforcement point. The BTP-to-Cloud-Connector tunnel is
+TLS-protected, but open-rfc does not implement SNC; classic RFC on the internal
+Cloud-Connector-to-SAP-gateway hop has no end-to-end confidentiality or peer
+authentication. Keep that hop on a trusted segmented network. Select TCP TLS
+only when the mapped backend endpoint actually implements the corresponding TLS
+protocol; it does not add SNC to an ordinary SAP gateway.
+
+Confirm these values against SAP's current BTP Connectivity documentation for
+the TCP/SOCKS5 protocol, service-instance bindings, and Cloud Connector access
+control before each rollout.
 
 ## Principal and authorization
 

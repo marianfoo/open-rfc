@@ -81,4 +81,9 @@ together; the location ID is optional.
 The route rejects RFC-proxy parameters, principal propagation, SAProuter,
 message-server, and WebSocket combinations before socket I/O. Because a TCP
 mapping is opaque, enforce the exact RFM allowlist with the named user's
-`S_RFC` role and restrict which Cloud Foundry applications may use the mapping.
+`S_RFC` role. On Cloud Foundry the tunnel is scoped to the connected
+subaccount; Cloud Connector's Trusted Applications allowlist is Neo-only.
+Isolate production subaccounts and spaces, restrict Connectivity
+service-binding access, and expose only the exact virtual host and gateway port.
+See [Configuration](configuration.md#btp-connectivity-socks5-preview) for the
+complete mapping and credential checklist.

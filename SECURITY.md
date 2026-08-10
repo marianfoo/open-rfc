@@ -12,8 +12,11 @@ network.
 The implemented BTP Connectivity SOCKS5/TCP preview is also outside the beta
 support contract. It uses a Cloud Connector TCP mapping, not the separate RFC
 proxy. TCP mappings are opaque to Cloud Connector and therefore cannot apply
-its RFC function-module resource allowlist. Restrict the mapping to trusted
-applications and enforce exact function access with a dedicated named user's
+its RFC function-module resource allowlist. Cloud Connector's Trusted
+Applications allowlist applies to Neo, not Cloud Foundry. In CF, isolate
+production subaccounts and spaces, restrict who can create or consume
+Connectivity service bindings, expose only the exact virtual host and gateway
+port, and enforce exact function access with a dedicated named user's
 least-privilege `S_RFC` role. Treat the Connectivity access token, location ID,
 service-binding client secret, and complete connection object as credentials.
 

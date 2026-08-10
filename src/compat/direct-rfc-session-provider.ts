@@ -51,6 +51,11 @@ function directConnection(
       "direct RFC session provider requires named-user authentication",
     );
   }
+  if (plan.sapRouter !== undefined && plan.connectivitySocks5 !== undefined) {
+    throw new TypeError(
+      "direct RFC session provider cannot combine SAProuter and Connectivity SOCKS5",
+    );
+  }
   if (plan.sapRouter !== undefined && !sapRouterSupported) {
     throw new TypeError(
       "direct RFC session provider does not implement SAProuter",
