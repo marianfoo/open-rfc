@@ -7,13 +7,6 @@ Before changing code, read the public support boundary in `README.md`, the
 end-user documentation in `docs_page/`, and the architecture and test guidance
 in `AGENTS.md`.
 
-**Reporting that it worked is a contribution.** The release tests cover Ubuntu
-24.04 with Node.js 22 and 24 against two SAP release families. The package is
-portable JavaScript with no native addon, so it should work much more widely —
-but an unqualified platform only becomes a qualified one when somebody reports
-what they tried. Use the **Platform report** issue template, for a success as
-readily as a failure.
-
 ## Using a coding agent
 
 If you would rather point an AI agent at a problem than debug it yourself,

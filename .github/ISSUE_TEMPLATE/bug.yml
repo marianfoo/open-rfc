@@ -28,10 +28,7 @@ body:
     id: version
     attributes:
       label: open-rfc version
-      description: >-
-        `npm ls open-rfc` reports it. If you can also give the tarball SHA-256
-        from `npm view open-rfc dist.integrity`, add it after the version — it
-        pins the exact artifact, but it is not required to file a report.
+      description: "`npm ls open-rfc` reports it."
       placeholder: "0.2.3"
     validations:
       required: true
