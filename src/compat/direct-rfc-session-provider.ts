@@ -13,6 +13,7 @@ import {
 } from "./connection-parameters.js";
 import {
   normalizedDirectConnectionFromPlan,
+  type ConnectivitySocks5Plan,
   type ConnectionRoutePlan,
 } from "./connection-route.js";
 import type { RFCClientDestinationOwnerFactory } from "./rfc-client-owner-registry.js";
@@ -31,11 +32,16 @@ export interface DirectRfcSessionProviderOptions {
   readonly sapRouterTransportFactory?: (
     routeString: string,
   ) => DirectCpicTransportFactory;
+  /** Present only when a real BTP Connectivity SOCKS5 transport is composed. */
+  readonly connectivitySocks5TransportFactory?: (
+    plan: ConnectivitySocks5Plan,
+  ) => DirectCpicTransportFactory;
 }
 
 function directConnection(
   plan: ConnectionRoutePlan,
   sapRouterSupported: boolean,
+  connectivitySocks5Supported: boolean,
 ): NormalizedDirectConnection {
   if (plan.route.kind !== "direct") {
     throw new TypeError("direct RFC session provider requires a direct route");
@@ -43,6 +49,11 @@ function directConnection(
   if (plan.authentication.kind !== "named-user") {
     throw new TypeError(
       "direct RFC session provider requires named-user authentication",
+    );
+  }
+  if (plan.sapRouter !== undefined && plan.connectivitySocks5 !== undefined) {
+    throw new TypeError(
+      "direct RFC session provider cannot combine SAProuter and Connectivity SOCKS5",
     );
   }
   if (plan.sapRouter !== undefined && !sapRouterSupported) {
@@ -53,6 +64,11 @@ function directConnection(
   if (plan.connectivityProxy !== undefined) {
     throw new TypeError(
       "direct RFC session provider does not implement Connectivity",
+    );
+  }
+  if (plan.connectivitySocks5 !== undefined && !connectivitySocks5Supported) {
+    throw new TypeError(
+      "direct RFC session provider does not implement Connectivity SOCKS5",
     );
   }
   return normalizedDirectConnectionFromPlan(plan);
@@ -195,12 +211,22 @@ export function createDirectRfcSessionProvider(
   const ownerFactory = options.ownerFactory;
   const operationTimeoutMs = options.operationTimeoutMs;
   const sapRouterTransportFactory = options.sapRouterTransportFactory;
+  const connectivitySocks5TransportFactory =
+    options.connectivitySocks5TransportFactory;
   if (
     sapRouterTransportFactory !== undefined &&
     typeof sapRouterTransportFactory !== "function"
   ) {
     throw new TypeError(
       "direct RFC session provider sapRouterTransportFactory must be a function",
+    );
+  }
+  if (
+    connectivitySocks5TransportFactory !== undefined &&
+    typeof connectivitySocks5TransportFactory !== "function"
+  ) {
+    throw new TypeError(
+      "direct RFC session provider connectivitySocks5TransportFactory must be a function",
     );
   }
   const provider: RfcSessionProvider = {
@@ -210,11 +236,15 @@ export function createDirectRfcSessionProvider(
       ...(sapRouterTransportFactory === undefined
         ? []
         : ["saprouter-routing"] as const),
+      ...(connectivitySocks5TransportFactory === undefined
+        ? []
+        : ["connectivity-socks5-tcp"] as const),
     ]),
     async open(plan) {
       const connection = directConnection(
         plan,
         sapRouterTransportFactory !== undefined,
+        connectivitySocks5TransportFactory !== undefined,
       );
       let transportFactory: DirectCpicTransportFactory | undefined;
       if (plan.sapRouter !== undefined) {
@@ -226,6 +256,18 @@ export function createDirectRfcSessionProvider(
         if (typeof transportFactory !== "function") {
           throw new TypeError(
             "sapRouterTransportFactory must return a transport function",
+          );
+        }
+      }
+      if (plan.connectivitySocks5 !== undefined) {
+        transportFactory = Reflect.apply(
+          connectivitySocks5TransportFactory!,
+          undefined,
+          [plan.connectivitySocks5],
+        ) as DirectCpicTransportFactory;
+        if (typeof transportFactory !== "function") {
+          throw new TypeError(
+            "connectivitySocks5TransportFactory must return a transport function",
           );
         }
       }

@@ -4,6 +4,8 @@ import { createProductionDirectDestinationSessionFactory } from
   "../destination/direct-destination-owner.js";
 import { createSapRouterDirectCpicTransportFactory } from
   "../transport/saprouter-ni.js";
+import { createConnectivitySocks5DirectCpicTransportFactory } from
+  "../transport/connectivity-socks5-ni.js";
 import {
   normalizeDirectConnectionParameters,
   type NormalizedDirectConnection,
@@ -39,6 +41,24 @@ export function planCompatibilityOwnerRoute(
         "Connectivity routes are not implemented by the archived Client/Pool facade",
       );
     }
+    if (plan.connectivitySocks5 !== undefined) {
+      const transportFactory =
+        createConnectivitySocks5DirectCpicTransportFactory({
+          proxyHost: plan.connectivitySocks5.host,
+          proxyPort: plan.connectivitySocks5.port,
+          accessToken: plan.connectivitySocks5.accessToken,
+          ...(plan.connectivitySocks5.locationId === undefined
+            ? {}
+            : { locationId: plan.connectivitySocks5.locationId }),
+        });
+      return Object.freeze({
+        kind: "direct" as const,
+        connection: normalizedDirectConnectionFromPlan(plan),
+        sessionFactory: createProductionDirectDestinationSessionFactory({
+          transportFactory,
+        }),
+      });
+    }
     if (plan.sapRouter !== undefined) {
       const transportFactory = createSapRouterDirectCpicTransportFactory(
         plan.sapRouter.routeString,
@@ -61,7 +81,11 @@ export function planCompatibilityOwnerRoute(
       "wshost connections are not implemented by the archived Client/Pool facade",
     );
   }
-  if (plan.sapRouter !== undefined || plan.connectivityProxy !== undefined) {
+  if (
+    plan.sapRouter !== undefined ||
+    plan.connectivityProxy !== undefined ||
+    plan.connectivitySocks5 !== undefined
+  ) {
     throw new Error(
       "message-server SAProuter and Connectivity routes are not implemented by the archived Client/Pool facade",
     );

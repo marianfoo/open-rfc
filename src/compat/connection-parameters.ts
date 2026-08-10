@@ -50,9 +50,29 @@ const RECOGNIZED_DIRECT_PARAMETER_NAMES = Object.freeze([
   "sysid",
   "group",
   "wshost",
+  "wsport",
   "saprouter",
+  "connectivity_proxy_host",
+  "connectivity_proxy_port",
+  "connectivity_proxy_authentication",
+  "connectivity_subaccount",
+  "connectivity_location_id",
+  "connectivity_socks5_proxy_host",
+  "connectivity_socks5_proxy_port",
+  "connectivity_socks5_access_token",
+  "connectivity_socks5_location_id",
+  "business_user_token",
   "snc_mode",
 ] as const);
+
+const HIDDEN_DIRECT_PARAMETER_NAMES = new Set([
+  "passwd",
+  "business_user_token",
+  "connectivity_proxy_authentication",
+  "connectivity_location_id",
+  "connectivity_socks5_access_token",
+  "connectivity_socks5_location_id",
+]);
 
 const ISO_TO_SAP_LANGUAGE: Readonly<Record<string, string>> = Object.freeze({
   AF: "a",
@@ -254,9 +274,10 @@ export function snapshotDirectConnectionParameters(
           `RFC connection parameter ${key} must be an own data property`,
         );
       }
+      const hidden = HIDDEN_DIRECT_PARAMETER_NAMES.has(key.toLowerCase());
       Object.defineProperty(snapshot, key, {
         configurable: false,
-        enumerable: key.toLowerCase() !== "passwd",
+        enumerable: !hidden,
         value: descriptor.value,
         writable: false,
       });
