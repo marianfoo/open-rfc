@@ -17,6 +17,18 @@ that surface is released.
   so unsupported RFC-proxy requests fail closed instead of silently selecting a
   direct connection.
 
+## [0.2.3](https://github.com/marianfoo/open-rfc/compare/v0.2.2...v0.2.3) (2026-08-10)
+
+
+### Features
+
+* add BTP Connectivity SOCKS5 RFC route ([#14](https://github.com/marianfoo/open-rfc/issues/14)) ([7300d86](https://github.com/marianfoo/open-rfc/commit/7300d861c2179ddee2414eea85e5c660dc7277fd))
+
+
+### Bug Fixes
+
+* **ci:** drop the post-publish registry check rather than making it reliable ([#8](https://github.com/marianfoo/open-rfc/issues/8)) ([863284d](https://github.com/marianfoo/open-rfc/commit/863284d61b5897899ca69f47a1824efbd780dda8))
+
 ## [0.2.2](https://github.com/marianfoo/open-rfc/compare/v0.2.1...v0.2.2) (2026-08-07)
 
 
