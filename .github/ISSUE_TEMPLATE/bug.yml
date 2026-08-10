@@ -83,7 +83,6 @@ body:
         - message server (load balancing)
         - SAProuter
         - BTP Connectivity / Cloud Connector
-        - through a @sap/cds-rfc destination
         - not sure
     validations:
       required: true

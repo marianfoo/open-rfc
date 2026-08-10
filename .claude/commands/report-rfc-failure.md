@@ -30,8 +30,9 @@ what you must not send.
 | the real function module name | an invented name, unless it is a standard SAP RFM like `RFC_PING` or `STFC_CONNECTION` |
 | real parameter and field names | invented names — `ZFIELD_A`, `ZTAB` |
 | returned rows or business values | the ABAP type and length: `CHAR(10)`, `DEC(15,2)`, `DATS` |
-| a raw trace, packet capture, or `.env` | the public error group and code |
-| a full stack trace | the error class and message, with paths trimmed |
+| a raw trace, packet capture, or `.env` | the error `codeString`, `group` and `key` |
+| `abapMsgV1`–`abapMsgV4`, or a message built from them | the message coordinates: class, type, number — `ZFI/E/042` |
+| a full stack trace | the error class and code, with paths trimmed |
 
 If you cannot describe the failure without one of the left-hand items, say so in
 the issue and ask how to proceed. **A maintainer will never ask you for them in a
@@ -75,24 +76,34 @@ refused unsupported option is the design working, not breaking.
 
 ## Phase 1 — capture the failure safely
 
-Get the **public error group and code**, the failure point, and nothing else.
-
-Wrap the failing call so the error's class and code are printed but its content
-is not:
+Get the **public error identifiers**, the failure point, and nothing else.
 
 ```js
 try {
   await client.call("YOUR_RFM", { /* ... */ });
 } catch (error) {
   console.error({
-    name: error?.name,
-    code: error?.code,
+    name: error?.name,          // RFCError, ABAPError, ...
+    codeString: error?.codeString, // e.g. RFC_ABAP_MESSAGE
     group: error?.group,
-    // message may embed field paths; read it yourself before sharing it
-    message: error?.message,
+    key: error?.key,            // the RFC error key, a protocol constant
+    // ABAP message coordinates identify the message without its content:
+    abapMsgClass: error?.abapMsgClass,
+    abapMsgType: error?.abapMsgType,
+    abapMsgNumber: error?.abapMsgNumber,
   });
 }
 ```
+
+**Do not print `abapMsgV1` through `abapMsgV4`.** Those are the ABAP message
+*variables*, and they routinely hold the document number, material number,
+user, or amount that the message is about. The class, type and number above
+identify the message precisely without any of that — `ZFI/E/042` tells a
+maintainer everything the text would, and nothing it should not.
+
+For the same reason, **read `error.message` yourself before sharing it.** For a
+declared ABAP exception it is built from the first message variable, so it can
+carry a business value straight into your issue.
 
 Then record **when** it failed, because it decides whether a retry would have
 been safe:
