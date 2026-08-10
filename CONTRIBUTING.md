@@ -4,6 +4,13 @@ Thank you for helping improve open-rfc. Before changing code, read the public
 support boundary in `README.md`, the end-user documentation in `docs_page/`,
 and the architecture and test guidance in `AGENTS.md`.
 
+Two documents explain why the code is shaped the way it is, which is the
+context most likely to be missing from an outside pull request:
+[`docs/architecture.md`](docs/architecture.md) for the layer boundaries and the
+evidence hierarchy, and
+[`docs/recurring-bug-class.md`](docs/recurring-bug-class.md) for the decoder
+mistake this project has made six times. Both are short.
+
 Open an issue before starting a large protocol, transport, authentication, or
 public-API change. For a focused bug fix, add the smallest failing contract or
 boundary test first, keep behavior in its owning layer, and avoid widening the
@@ -38,9 +45,10 @@ Before opening a pull request:
 1. describe the user-visible behavior and support boundary;
 2. add the smallest failing contract or boundary test before the fix;
 3. run checks in proportion to the change: documentation-only edits need
-   `npm run check:docs:public` and `npm run docs:site:check`; product or shared
-   tooling changes need the focused test plus their applicable public, lint,
-   and package checks;
+   `npm run check:docs:public`; product or shared tooling changes need the
+   focused test plus their applicable public, lint, and package checks. See
+   "Build and test" in [`AGENTS.md`](AGENTS.md) for running a single test, and
+   for why `npm run docs:site:check` is a CI-only check;
 4. update public documentation for API, configuration, error, or compatibility
    changes;
 5. declare every source or behavioral reference used; and

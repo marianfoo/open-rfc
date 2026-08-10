@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DOCUMENTATION_ONLY_PREFIXES = Object.freeze([
+  ".claude/commands/",
   "docs/",
   "docs_page/",
 ]);

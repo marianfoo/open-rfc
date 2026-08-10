@@ -7,20 +7,6 @@ import { pathToFileURL } from "node:url";
 
 const DEFAULT_ROOT = resolve(import.meta.dirname, "..");
 const MAX_TEST_FILES = 512;
-export const PUBLIC_MJS_TESTS = Object.freeze([
-  "test/api-subpath-contract.test.mjs",
-  "test/build-output-clean.test.mjs",
-  "test/directory-fsync.test.mjs",
-  "test/dual-loader-error-brand.test.mjs",
-  "test/offline-network-guard.test.mjs",
-  "test/packaged-readme-links.test.mjs",
-  "test/public-hosted-platform-evidence.test.mjs",
-  "test/public-release-workflows.test.mjs",
-  "test/public-support-links.test.mjs",
-  "test/runnable-examples.test.mjs",
-  "test/tool-bounds.test.mjs",
-  "test/trusted-git.test.mjs",
-]);
 
 export class PublicTestSuiteError extends Error {
   constructor(message) {
@@ -46,25 +32,39 @@ async function regularFile(root, relativePath) {
   return relativePath;
 }
 
-/** Resolve the complete compiled product suite plus the reviewed public-only source tests. */
+/** Discover every test file of one kind, as regular files, sorted and bounded. */
+async function discover(root, directory, suffix) {
+  let entries;
+  try {
+    entries = await readdir(resolve(root, directory), { withFileTypes: true });
+  } catch {
+    fail(`${directory} is unavailable; run the public build first`);
+  }
+  const found = entries
+    .filter((entry) => entry.isFile() && !entry.isSymbolicLink() && entry.name.endsWith(suffix))
+    .map((entry) => `${directory}/${entry.name}`)
+    .sort();
+  if (found.length === 0 || found.length > MAX_TEST_FILES) {
+    fail(`${directory} test inventory is empty or outside its bound`);
+  }
+  return found;
+}
+
+/**
+ * Resolve the complete suite: compiled product tests plus source-only tests.
+ *
+ * Both kinds are discovered rather than listed. A hand-maintained inventory of
+ * the `.mjs` tests used to sit here, and it drifted immediately and silently:
+ * `ci-change-scope.test.mjs` was absent from it from the first published commit,
+ * so a test that passes was never once run by the suite that claims to run
+ * everything. Discovery cannot drift, and the compiled half already worked this
+ * way -- the asymmetry was the whole defect.
+ */
 export async function publicTestFiles(rootValue = DEFAULT_ROOT) {
   const root = resolve(rootValue);
-  let compiled;
-  try {
-    compiled = (await readdir(resolve(root, "dist/test"), { withFileTypes: true }))
-      .filter((entry) => entry.isFile() && !entry.isSymbolicLink() && entry.name.endsWith(".test.js"))
-      .map((entry) => `dist/test/${entry.name}`)
-      .sort();
-  } catch {
-    fail("compiled product tests are unavailable; run the public build first");
-  }
-  if (compiled.length === 0 || compiled.length > MAX_TEST_FILES) {
-    fail("compiled product test inventory is empty or outside its bound");
-  }
-  const source = [];
-  for (const relativePath of PUBLIC_MJS_TESTS) {
-    source.push(await regularFile(root, relativePath));
-  }
+  const compiled = await discover(root, "dist/test", ".test.js");
+  const source = await discover(root, "test", ".test.mjs");
+  for (const relativePath of source) await regularFile(root, relativePath);
   return Object.freeze([...compiled, ...source]);
 }
 
@@ -95,7 +95,7 @@ export async function runPublicTestSuite(rootValue = DEFAULT_ROOT) {
   return Object.freeze({
     status: "passed",
     compiledTests: paths.filter((path) => path.startsWith("dist/test/")).length,
-    publicSourceTests: PUBLIC_MJS_TESTS.length,
+    publicSourceTests: paths.filter((path) => path.endsWith(".test.mjs")).length,
   });
 }
 
