@@ -17,6 +17,7 @@ export const PUBLIC_MJS_TESTS = Object.freeze([
   "test/public-hosted-platform-evidence.test.mjs",
   "test/public-release-workflows.test.mjs",
   "test/public-support-links.test.mjs",
+  "test/runnable-examples.test.mjs",
   "test/tool-bounds.test.mjs",
   "test/trusted-git.test.mjs",
 ]);

@@ -1,12 +1,21 @@
-# Standalone example
+# Standalone examples
 
-This example uses the archived `node-rfc`-compatible `Client` surface from the
-SDK-free `open-rfc` package. It calls the SAP-supplied read/echo function
-`STFC_CONNECTION` and prints one fixed success line only after the call and
+These examples use the archived `node-rfc`-compatible `Client` surface from the
+SDK-free `open-rfc` package. They call the SAP-supplied read/echo function
+`STFC_CONNECTION` and print one fixed success line only after the call and
 cleanup both succeed.
 
-Install an exact reviewed `open-rfc` artifact in this directory's parent
-consumer, then provide connection values through the environment:
+From a matching source tag, install the repository dependencies and build the
+package once:
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+npm run build
+```
+
+If you copy either file into a separate application instead, install the exact
+reviewed `open-rfc` release in that application first. Then provide connection
+values through the environment:
 
 ```sh
 export SAP_ASHOST=app.example.invalid
@@ -17,6 +26,8 @@ read -rsp 'SAP password: ' SAP_PASSWD
 printf '\n'
 export SAP_PASSWD
 node examples/standalone/hello-world.mjs
+# Or, from the same shell, run the CommonJS version:
+node examples/standalone/hello-world.cjs
 unset SAP_PASSWD
 ```
 
@@ -28,7 +39,7 @@ response data.
 The password prompt above requires Bash. In unattended environments, inject
 `SAP_PASSWD` through the platform's secret manager instead. Do not put
 credentials in source, shell history, logs, traces, or bug reports.
-The example always closes the client. If the call and close both fail, it
+Each example always closes the client. If the call and close both fail, it
 preserves both errors and keeps the call failure as the primary cause
 internally, then emits only a fixed failure line. A timeout, cancellation,
 protocol error, or transport error is not automatically replayed. Production

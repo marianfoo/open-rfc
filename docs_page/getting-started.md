@@ -20,7 +20,16 @@ tag. The website can describe a newer release.
 - A remote-enabled ABAP function module and an RFC user authorized to call it.
 - Network access to the SAP gateway for the selected application server.
 
-## Install an exact release
+## Install
+
+For a first local evaluation, install the package with npm's ordinary package
+command:
+
+```sh
+npm install open-rfc
+```
+
+For a repeatable deployment, pin the exact version named by this page:
 
 ```sh
 npm install --save-exact open-rfc@{{OPEN_RFC_PACKAGE_VERSION}}

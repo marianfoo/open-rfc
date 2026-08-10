@@ -30,7 +30,108 @@ the documented npm 11 override. The preview matrix covers representative
 lifecycle and standard transaction paths; project testing does not yet include
 the dedicated recovery, isolation, and transaction-failure aggregates.
 
-## Install
+## Quick start
+
+Install the package:
+
+```sh
+npm install open-rfc
+```
+
+Save this as `rfc-smoke.mjs`, provide the four required environment variables,
+and run `node rfc-smoke.mjs`. It makes one read-only echo call and closes the
+client. The example reports only fixed success or failure text.
+
+<!-- open-rfc-doc-example id="readme-quick-start" runtime="esm" outcome="missing-connection" sha256="1264e4ed0f1e45915912f4ccd5f31a39caddbd92d4891ed73bf8138556539417" -->
+```js
+import { Client } from "open-rfc";
+
+const required = ["SAP_ASHOST", "SAP_CLIENT", "SAP_USER", "SAP_PASSWD"];
+const missing = required.filter((name) => !process.env[name]);
+
+if (missing.length > 0) {
+  console.error(
+    `Missing required SAP connection environment variables: ${missing.join(", ")}`,
+  );
+  process.exitCode = 1;
+} else {
+  const client = new Client(
+    {
+      ashost: process.env.SAP_ASHOST,
+      sysnr: process.env.SAP_SYSNR ?? "00",
+      client: process.env.SAP_CLIENT,
+      user: process.env.SAP_USER,
+      passwd: process.env.SAP_PASSWD,
+      lang: process.env.SAP_LANG ?? "EN",
+    },
+    { timeout: 15 },
+  );
+
+  let opened = false;
+  let failed = false;
+  try {
+    await client.open();
+    opened = true;
+    await client.call("STFC_CONNECTION", {
+      REQUTEXT: "hello from open-rfc",
+    });
+  } catch {
+    failed = true;
+    console.error("RFC call failed; consult private, redacted diagnostics.");
+  } finally {
+    if (opened) {
+      try {
+        await client.close();
+      } catch {
+        failed = true;
+        console.error("RFC close failed; consult private, redacted diagnostics.");
+      }
+    }
+  }
+
+  if (failed) process.exitCode = 1;
+  else console.log("hello from open-rfc");
+}
+```
+
+Use a read-only RFM on an approved non-production system for the first test.
+Connection fields use the connector's documented spelling, and RFC parameter
+names keep the exact metadata casing: `REQUTEXT`, not `requtext`. Keep
+credentials, parameters, returned tables, raw frames, and backend identity out
+of logs.
+
+> Direct classic RFC does not provide transport encryption or peer
+> authentication. Use it only on a trusted private network or inside a
+> separately managed protected tunnel; never send credentials or RFC traffic
+> across an untrusted network. SAProuter is unsupported and does not by itself
+> add transport encryption.
+
+## Full runnable examples
+
+The tagged source repository contains complete, production-shaped Promise
+examples for both Node.js module systems:
+
+- ESM: `examples/standalone/hello-world.mjs`
+- CommonJS: `examples/standalone/hello-world.cjs`
+
+They validate configuration, use a finite timeout, preserve call and cleanup
+failures together, avoid printing arbitrary SAP responses, and always attempt
+to close an opened client. From a matching source tag, build once and run either
+file:
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+npm run build
+node examples/standalone/hello-world.mjs
+node examples/standalone/hello-world.cjs
+```
+
+The npm tarball intentionally does not install a project-level `examples/`
+directory. The [documentation site](https://marianfoo.github.io/open-rfc/)
+includes copy-paste versions of the complete examples for the exact version it
+names.
+
+## Install and verify a release
 
 Ubuntu 24.04 x64 with Node.js `^22.14.0` or `^24.0.0` is required by the beta
 support contract. Reproduce release and lockfile verification with the npm
@@ -40,8 +141,8 @@ release, copy its exact version from the matching release record and save it
 without a range:
 
 The standalone package does not call npm at runtime. npm 11 is the reproducible
-installation and release-verification tool and the requirement for the CAP override, not
-an additional runtime dependency.
+installation and release-verification tool and the requirement for the CAP
+override, not an additional runtime dependency.
 
 ```sh
 OPEN_RFC_VERSION=x.y.z
@@ -96,95 +197,6 @@ addon, shared library, SDK archive, executable, credential, capture, or oracle
 material. These checks are a consumer sanity test; the published release record
 also identifies the source commit, npm CLI, complete file inventory, SBOM,
 declarations, and exact root artifact.
-
-## Quick start
-
-This complete ESM example calls the SAP-supplied `STFC_CONNECTION` echo RFM.
-Save the example as `rfc-smoke.mjs`, set the four required environment
-variables, and run `node rfc-smoke.mjs`. With no connection values it exits
-non-zero and names only the missing variable names; it never prints a value.
-On success it prints the fixed line `hello from open-rfc`.
-
-<!-- open-rfc-doc-example id="standalone-stfc-connection" runtime="esm" outcome="missing-connection" sha256="fa58f83cf581165e171c7078f2b313563c24b6587d86cc8681c598f2e2dd16e2" -->
-```js
-import { Client } from "open-rfc";
-
-const required = ["SAP_ASHOST", "SAP_CLIENT", "SAP_USER", "SAP_PASSWD"];
-const missing = required.filter((name) => !process.env[name]);
-
-if (missing.length > 0) {
-  console.error(
-    `Missing required SAP connection environment variables: ${missing.join(", ")}`,
-  );
-  process.exitCode = 1;
-} else {
-  const requestText = "hello from open-rfc";
-  const client = new Client(
-    {
-      ashost: process.env.SAP_ASHOST,
-      sysnr: process.env.SAP_SYSNR ?? "00",
-      client: process.env.SAP_CLIENT,
-      user: process.env.SAP_USER,
-      passwd: process.env.SAP_PASSWD,
-      lang: process.env.SAP_LANG ?? "EN",
-    },
-    { timeout: 15 },
-  );
-
-  let opened = false;
-  let failure;
-  try {
-    await client.open();
-    opened = true;
-    const result = await client.call("STFC_CONNECTION", {
-      REQUTEXT: requestText,
-    });
-    if (result.ECHOTEXT !== requestText) {
-      throw new Error("STFC_CONNECTION returned an unexpected echo");
-    }
-  } catch (error) {
-    failure = error;
-  }
-
-  if (opened) {
-    try {
-      await client.close();
-    } catch (closeError) {
-      failure = failure
-        ? new AggregateError(
-            [failure, closeError],
-            "RFC operation and close both failed",
-            { cause: failure },
-          )
-        : closeError;
-    }
-  }
-  if (failure) {
-    console.error("RFC operation failed; consult private, redacted diagnostics.");
-    process.exitCode = 1;
-  } else {
-    console.log("hello from open-rfc");
-  }
-}
-```
-
-If the call and `close()` both fail, the example preserves both errors and
-keeps the call failure as the primary cause internally. It emits only a fixed
-public failure line instead of letting Node.js print raw backend error text.
-Production code may send the retained error to an application-owned private
-handler only after applying its redaction policy.
-
-Use a read-only RFM on an approved non-production system for the first test.
-Connection property names shown above use the connector's documented spelling.
-RFC parameter names are matched to function metadata using their exact casing,
-normally uppercase: keep `REQUTEXT`, not `requtext`. Do not log credentials,
-parameters, returned tables, raw frames, or backend identity.
-
-> Direct classic RFC does not provide transport encryption or peer
-> authentication. Use it only on a trusted private network or inside a
-> separately managed protected tunnel; never send credentials or RFC traffic
-> across an untrusted network. SAProuter is unsupported and does not by itself add
-> transport encryption.
 
 ## What works—and what does not
 
