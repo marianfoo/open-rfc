@@ -1,0 +1,60 @@
+name: Feature or capability request
+description: Ask for a route, value type, authentication mode, or API this release does not cover.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Several capabilities are deliberately closed rather than missing —
+        registered server mode, tRFC/qRFC/bgRFC, SNC and X.509, non-Unicode and
+        MDMP, basXML, WebSocket RFC, and Cloud Connector principal propagation.
+        A request for one of those is still useful: it tells us what to
+        prioritise. Please check
+        [the roadmap](https://marianfoo.github.io/open-rfc/roadmap/) and
+        [status](https://marianfoo.github.io/open-rfc/status/) first so the
+        answer is not already written down.
+
+        **Never paste credentials, hostnames, system identities, tokens, or
+        business data.** Describe the shape, never the content.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >-
+        The need, not the solution. "I have to call an RFM through a message
+        server because the landscape has no fixed application server" is
+        actionable; "add message-server support" is a solution whose problem we
+        have to guess at.
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocked
+    attributes:
+      label: What are you doing today instead?
+      description: >-
+        Whether you are blocked entirely, using node-rfc with the SDK, or have a
+        workaround. This is the difference between a nice-to-have and a reason
+        someone cannot adopt the package.
+    validations:
+      required: true
+
+  - type: input
+    id: sap
+    attributes:
+      label: SAP release family and route
+      placeholder: "NetWeaver 7.52, message server"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Could you help?
+      description: Entirely optional, and a "no" changes nothing about how the request is read.
+      options:
+        - label: I could test a change against a non-production system.
+          required: false
+        - label: I could contribute the change itself.
+          required: false

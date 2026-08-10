@@ -1,8 +1,11 @@
 # Contributing
 
-Thank you for helping improve open-rfc. Before changing code, read the public
-support boundary in `README.md`, the end-user documentation in `docs_page/`,
-and the architecture and test guidance in `AGENTS.md`.
+Thank you for helping improve open-rfc. Participation is covered by the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+Before changing code, read the public support boundary in `README.md`, the
+end-user documentation in `docs_page/`, and the architecture and test guidance
+in `AGENTS.md`.
 
 Two documents explain why the code is shaped the way it is, which is the
 context most likely to be missing from an outside pull request:
@@ -15,6 +18,29 @@ Open an issue before starting a large protocol, transport, authentication, or
 public-API change. For a focused bug fix, add the smallest failing contract or
 boundary test first, keep behavior in its owning layer, and avoid widening the
 documented support boundary as a side effect.
+
+## Using a coding agent
+
+If you would rather point an AI agent at a problem than work through it
+yourself, this repository ships three prompts. Start with the first one if the
+failure is on your own SAP system.
+
+- [`.claude/commands/report-rfc-failure.md`](.claude/commands/report-rfc-failure.md)
+  — **you do not need a checkout for this one.** Your call fails against your
+  own system: it checks whether the case is inside the supported boundary,
+  reduces the failure to a synthetic reproducer with no SAP data in it, and
+  fills in every field of the bug template.
+- [`.claude/commands/deep-bug.md`](.claude/commands/deep-bug.md) — find the real
+  root cause before changing anything, then fix it with a test that was seen to
+  fail.
+- [`.claude/commands/deep-feature.md`](.claude/commands/deep-feature.md) —
+  establish whether a capability fits this architecture before designing it.
+
+Claude Code runs them as `/report-rfc-failure`, `/deep-bug` and
+`/deep-feature`. For Codex or another agent, say
+`follow .claude/commands/deep-bug.md` — nothing in any of them depends on which
+agent reads it. All three encode the redaction rules below, so an agent
+following them will not put SAP data in an issue or a pull request.
 
 Do not contribute SAP SDK files, binaries, headers, restricted-derived material,
 captures, credentials, private system data, or code derived from a source whose

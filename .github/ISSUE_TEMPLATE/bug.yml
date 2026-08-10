@@ -16,6 +16,13 @@ body:
         never ask for those in a public issue. For a suspected vulnerability use
         a private security advisory instead.
 
+        Reducing a live failure to a safe synthetic reproducer is the hard part.
+        If you would rather hand that to an AI agent, the repository ships a
+        prompt for exactly this:
+        [`report-rfc-failure.md`](https://github.com/marianfoo/open-rfc/blob/main/.claude/commands/report-rfc-failure.md).
+        It checks the supported boundary, reduces the failure without your SAP
+        data leaving your machine, and fills in every field below.
+
   - type: checkboxes
     id: redaction
     attributes:
@@ -27,8 +34,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: Package version and tarball SHA-256
-      placeholder: "0.2.0 / sha256:..."
+      label: open-rfc version
+      description: "`npm ls open-rfc` reports it."
+      placeholder: "0.2.3"
     validations:
       required: true
 
@@ -59,6 +67,38 @@ body:
         - S/4HANA 2023
         - NetWeaver 7.50
         - other or unsupported
+    validations:
+      required: true
+
+  - type: dropdown
+    id: route
+    attributes:
+      label: Route
+      description: >-
+        How the connection reaches the SAP system. Only the direct
+        application-server route is inside the beta support boundary; the others
+        are previews and a defect on one is still worth reporting.
+      options:
+        - direct application server
+        - message server (load balancing)
+        - SAProuter
+        - BTP Connectivity / Cloud Connector
+        - not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: interface-shape
+    attributes:
+      label: Function interface shape
+      description: >-
+        The parameter shape that triggers it, with **invented** names and no
+        business values — the ABAP types are what matter. For example:
+        "IMPORTING one CHAR(10); TABLES one row of 3 fields (CHAR(4), DEC(15,2),
+        DATS)". Write "not shape-specific" if any function reproduces it.
+      placeholder: |
+        IMPORTING: ZFIELD_A CHAR(10)
+        TABLES:    ZTAB (CHAR(4), DEC(15,2), DATS), ~200 rows
     validations:
       required: true
 
