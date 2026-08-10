@@ -81,22 +81,19 @@ It worked: it caught a third drift within a minute of being written, when a
 copy and discarded a reduction.
 
 But a test that two copies agree is a guard on a duplication that should not
-exist. `release/templates/` belongs to the private repository, where
-`.github/workflows/` holds the *private* CI and the templates hold the public
-versions the export copies in. That split is real there. Here there is no split:
-`.github/workflows/` **is** the public version. The directory was the export
-machinery shipped alongside its own output, and nothing in this repository read
-it except the tests themselves.
+exist. `release/templates/` was a build-time artefact of how this repository was
+first assembled: a second copy of the workflows, kept so a generator could copy
+them into place. There is nothing to generate here — `.github/workflows/` **is**
+the version that runs, and nothing in this repository read the templates except
+the tests themselves.
 
 So `release/templates/` is deleted, the parity test with it, and
 `public-release-workflows.test.mjs` now reads `.github/workflows/` — the files
 that actually run, which is what it should have asserted on from the start.
 Drift is now impossible rather than caught.
 
-One loose end: the private repository's export path policy still lists
-`release/` as public, so a full re-export would put the directory back. The
-public repository is maintained by pull request now and is unlikely to be
-re-exported wholesale, but the policy is the durable fix if it ever is.
+This repository is maintained by pull request, so the directory cannot come
+back the way it arrived.
 
 ## Verification
 
