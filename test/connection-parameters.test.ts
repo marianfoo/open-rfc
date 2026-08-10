@@ -45,34 +45,53 @@ test("keeps every captured route credential non-enumerable", () => {
     user: "RFCUSER",
     passwd: "password-fixture",
     connectivity_proxy_authentication: "proxy-authorization-fixture",
+    connectivity_location_id: "proxy-location-fixture",
     connectivity_socks5_access_token: "connectivity-token-fixture",
+    connectivity_socks5_location_id: "socks-location-fixture",
     business_user_token: "business-token-fixture",
   };
   const snapshot = snapshotDirectConnectionParameters(values);
   for (const [key, secret] of [
     ["passwd", values.passwd],
     ["connectivity_proxy_authentication", values.connectivity_proxy_authentication],
+    ["connectivity_location_id", values.connectivity_location_id],
     ["connectivity_socks5_access_token", values.connectivity_socks5_access_token],
+    ["connectivity_socks5_location_id", values.connectivity_socks5_location_id],
     ["business_user_token", values.business_user_token],
   ] as const) {
-    assertHiddenPassword(snapshot, key, secret);
+    assertHiddenCredential(snapshot, key, secret);
   }
+
+  const uppercaseSnapshot = snapshotDirectConnectionParameters({
+    CONNECTIVITY_LOCATION_ID: "uppercase-proxy-location-fixture",
+    CONNECTIVITY_SOCKS5_LOCATION_ID: "uppercase-socks-location-fixture",
+  });
+  assertHiddenCredential(
+    uppercaseSnapshot,
+    "CONNECTIVITY_LOCATION_ID",
+    "uppercase-proxy-location-fixture",
+  );
+  assertHiddenCredential(
+    uppercaseSnapshot,
+    "CONNECTIVITY_SOCKS5_LOCATION_ID",
+    "uppercase-socks-location-fixture",
+  );
 });
 
-function assertHiddenPassword(
+function assertHiddenCredential(
   value: Readonly<Record<string, unknown>>,
   key: string,
-  password: string,
+  credential: string,
 ): void {
-  assert.equal(value[key], password);
+  assert.equal(value[key], credential);
   assert.deepEqual(Object.getOwnPropertyDescriptor(value, key), {
     configurable: false,
     enumerable: false,
-    value: password,
+    value: credential,
     writable: false,
   });
-  assert.equal(JSON.stringify(value).includes(password), false);
-  assert.equal(inspect(value).includes(password), false);
+  assert.equal(JSON.stringify(value).includes(credential), false);
+  assert.equal(inspect(value).includes(credential), false);
 }
 
 test("captures recognized parameters once without inspecting arbitrary keys", () => {
@@ -121,7 +140,7 @@ test("captures recognized parameters once without inspecting arbitrary keys", ()
     USER: "RFCUSER",
     LANG: "en-US",
   });
-  assertHiddenPassword(captured.connectionParameters, "PASSWD", "secret");
+  assertHiddenCredential(captured.connectionParameters, "PASSWD", "secret");
   assert.equal(captured.normalized.password, "secret");
   assert.ok(Object.isFrozen(captured));
   assert.ok(Object.isFrozen(captured.connectionParameters));
@@ -170,7 +189,7 @@ test("freezes a construction-time snapshot independently of later caller mutatio
     client: "001",
     user: "RFCUSER",
   });
-  assertHiddenPassword(captured.connectionParameters, "passwd", "secret");
+  assertHiddenCredential(captured.connectionParameters, "passwd", "secret");
   assert.equal(captured.normalized.host, "sap.example.test");
   assert.equal(captured.normalized.user, "RFCUSER");
   assert.equal(captured.normalized.password, "secret");

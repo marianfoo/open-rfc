@@ -69,7 +69,9 @@ const HIDDEN_DIRECT_PARAMETER_NAMES = new Set([
   "passwd",
   "business_user_token",
   "connectivity_proxy_authentication",
+  "connectivity_location_id",
   "connectivity_socks5_access_token",
+  "connectivity_socks5_location_id",
 ]);
 
 const ISO_TO_SAP_LANGUAGE: Readonly<Record<string, string>> = Object.freeze({
