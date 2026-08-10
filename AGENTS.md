@@ -101,7 +101,15 @@ is the one to run before pushing.
 - Read `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, and `SUPPORT.md` before
   changing behavior.
 - Add the smallest failing contract, malformed-input, boundary, cancellation,
-  or regression test before the implementation change.
+  or regression test before the implementation change. **A change to product
+  code without a test is not ready**, and the test must have been seen to fail
+  without the change — a test that has never failed is not yet a test.
+- **CI must be green before a pull request merges.** The `Development result`
+  workflow runs the full public suite, lint, package shape and the documentation
+  checks on every pull request. Note that GitHub does not run pull-request
+  workflows on a **conflicting** pull request, so a merge-conflicted branch
+  reports no checks at all rather than reporting a failure — rebase or merge
+  `main` and confirm the run actually happened.
 - Preserve public API and error semantics unless the pull request documents and
   tests an intentional compatibility change.
 - Update end-user documentation and examples whenever setup, behavior, limits,
