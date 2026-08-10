@@ -25,15 +25,10 @@ into a published version. Branch here, fix here, open the pull request here.
 Plans and research notes go with the change: `docs/plans/<slug>.md` moving to
 `docs/plans/completed/<slug>.md`, and `docs/research/<slug>.md`.
 
-**The research repository is a read-only reference at `~/DEV/open-rfc`.** It
-holds what cannot be published: recorded wire evidence, fixtures, the approved
-upstream trees, live-system credentials and runbooks, and the internal decision
-records. Read it freely. Never fix shipped code there, and never copy a source
-file from it into here — this repository is authoritative for everything under
-`src/`.
-
-Live SAP work is the one thing that must happen over there, because the
-credentials and evidence tooling are there. The fix still lands here.
+A maintainer may have further evidence sources configured locally. **If
+`CLAUDE.local.md` exists in this checkout, read it first** — it names what is
+available and the rules for using it. If it does not exist, everything below
+works from this repository alone.
 
 ---
 
@@ -54,9 +49,8 @@ there before forming a theory.
 
 Concretely, before you write down a cause:
 
-- Search `docs/` here, then `docs/` and `conformance/` in the research
-  repository, for the coordinate, the error code, the function module, the
-  release.
+- Search `docs/` and `conformance/` for the coordinate, the error code, the
+  function module, the release. Also any source named in `CLAUDE.local.md`.
 - Search the git history for when the code was written and why.
 - Look for a **sibling implementation** and compare. This project has two xRFC
   codecs, two session providers, two metadata readers. Divergence between
@@ -69,33 +63,18 @@ saying "the password is rejected" is a lead, not a fact.
 
 ## Research sources
 
-`~/DEV/*` is a **read-only reference** — never modify it.
-
-### Here
-
 | Source | Where | Use it for |
 |--------|-------|------------|
 | **Project rules** | `AGENTS.md` | The build, test and contribution rules that apply to this change |
 | **Architecture** | `docs/architecture.md` | Layer boundaries, ownership invariants, the evidence hierarchy |
 | **The recurring bug class** | `docs/recurring-bug-class.md` | Read this before touching any decoder |
 | **Completed plans** | `docs/plans/completed/` | How similar work was researched, built and verified |
+| **Prior research** | `docs/research/` | Measurements already taken. Do not re-derive them |
 | **The code and its tests** | `src/`, `test/` | 60 of 64 modules have a test naming them; the sibling you need is usually here |
+| **Conformance** | `conformance/` | The published API surface and the toolchain pins |
+| **SAP docs & Notes** | `sap-docs` and `sap-notes` MCP tools | Official documentation and SAP Notes. Cite the Note number when behaviour depends on one — `ddif-fieldinfo.ts` cites Note 1691982 and that citation settled a real question |
 
-### In the research repository (`~/DEV/open-rfc`)
-
-| Source | Where | Use it for |
-|--------|-------|------------|
-| **Engineering decisions** | `docs/engineering-decisions-and-learnings.md` | Why the code is shaped this way — and check whether the decision's premise still holds |
-| **Prior research** | `docs/*.md` — wire observations, live qualification records, `compatibility-matrix.md`, `live-conformance-matrix.md` | Ground truth already established, per release. Do not re-derive it |
-| **Recorded evidence** | `conformance/` — upstream cases, evidence corpora | Captured payloads and per-release facts |
-| **Fixtures** | `fixtures/`, `test/fixtures/` | Recorded wire data you can replay offline |
-| **Approved upstream only** | `upstream/node-rfc` @ `9ccc30b7` and `upstream/PyRFC` @ `5d4a20a5` — **these two and no others** | The node-rfc compatibility surface. Every other tree under `upstream/` is off limits; `pysap` in particular is GPL-2.0 and opening it contaminates a clean-room position |
-| **Live SAP systems** | `.env.live-s4hana-2023`, `.env.live-netweaver-750`; `npm run test:e2e` | Ground truth when docs and code disagree. Read-only, one run, never replayed |
-
-**SAP docs & Notes** — the `sap-docs` and `sap-notes` MCP tools, from either
-repository. Cite the Note number when behaviour depends on one;
-`ddif-fieldinfo.ts` already cites Note 1691982 and that citation settled a real
-question.
+Anything further is maintainer-local; see `CLAUDE.local.md` if it exists.
 
 ---
 
@@ -134,7 +113,7 @@ looks like "works on my system", look here before anywhere else.
 
 - [ ] Reproduced offline, from a fixture or test rather than a live call
 - [ ] The exact line identified, and the whole function read
-- [ ] Prior evidence searched in both repositories, and either cited or
+- [ ] Prior evidence searched in every available source, and either cited or
       confirmed absent — "I did not find one" stated explicitly
 - [ ] Sibling implementations compared, where one exists
 - [ ] Affected releases and inputs stated, with what is *not* affected
@@ -220,9 +199,9 @@ npm run test:public
   and say what was added or removed. Conformance aborts the suite otherwise.
 - `npm run lint`, and `npm run check:docs:public` if documentation changed.
   `npm run docs:site:check` is a CI-only check — see `AGENTS.md` for why.
-- Live verification only when the fix is on a live path, and only from the
-  research repository: `npm run test:e2e`, **once**. Not in a loop, never after
-  a timeout, never replaying an uncertain call.
+- Live verification only when the fix is on a live path, and only where a live
+  system is configured: **once**. Not in a loop, never after a timeout, never
+  replaying an uncertain call.
 
 ### Run only what your change can break
 
@@ -262,7 +241,9 @@ Sign every commit — `git commit -s`. The DCO check is required.
   mutating fixtures, or running update-task work.
 - **Never replay an uncertain or timed-out live call.** Failed authentications
   count toward locking a real account.
-- Never open `upstream/` trees other than `node-rfc` and `PyRFC`.
+- Reference implementations are limited to the ones `CONTRIBUTING.md` and
+  `THIRD_PARTY_NOTICES.md` already declare. Do not introduce a new one without
+  declaring it and its license.
 - Publishing, repository visibility, GitHub releases and `npm publish` are the
   owner's alone.
 
@@ -275,9 +256,9 @@ Sign every commit — `git commit -s`. The DCO check is required.
   clean bill of health.
 - **A control that cannot fail proves nothing.** Appending a comment to a file is
   not a control for an assertion that matches a string; remove the string.
-- **Match on context, not vocabulary.** A scan for private content flagged two
-  documents for the word "decompilation" — which appeared in the sentence
-  prohibiting it. A keyword hit orders the reading queue; it is not a finding.
+- **Match on context, not vocabulary.** A content scan once flagged two files
+  for a term that appeared in them only inside the sentence forbidding it. A
+  keyword hit orders the reading queue; it is not a finding.
 - **State the scope of a query, and do not exceed it.** A search restricted to
   one library's records was used to conclude something about *all* notice
   obligations, and missed an entire category.

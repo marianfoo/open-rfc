@@ -97,11 +97,11 @@ chain to another. The dependent job removes the need instead of paying for it.
 
 ## How this was checked
 
-A local clone at `~/DEV/arc-1` was read first. Its remote names
-`ClementRingot/arc-1`, which 404s — a stale URL from before the repository moved
-to the `arc-mcp` organisation — and its `release.yml` is 351 lines against the
-canonical 530. The dependent-job conclusion held, but the recovery reasoning
-above is only in the current file and would have been missed.
+A stale local clone was read first. Its remote named `ClementRingot/arc-1`,
+which 404s — a URL from before the repository moved to the `arc-mcp`
+organisation — and its `release.yml` was 351 lines against the canonical 530.
+The dependent-job conclusion held, but the recovery reasoning above is only in
+the current file and would have been missed.
 
 Everything cited here is from `arc-mcp/arc-1` read through the API. A checkout
 whose origin no longer resolves is not evidence about the project it came from.
