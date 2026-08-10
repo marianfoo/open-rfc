@@ -22,6 +22,16 @@ Keep wire behavior in its owning layer. Prefer a small explicit module over a
 cross-layer shortcut, bound all input-controlled allocation and recursion, and
 fail closed for unsupported routes or options.
 
+Two documents explain the reasoning behind those rules, and reading them will
+save a round of review:
+
+- [`docs/architecture.md`](docs/architecture.md) — the layer diagram, the
+  ownership invariants concurrency bugs violate, the implementation ladder, and
+  the evidence hierarchy this project ranks its sources by.
+- [`docs/recurring-bug-class.md`](docs/recurring-bug-class.md) — the mistake
+  this codebase has made six times: a decoder that memorises what one system
+  happened to send. Read it before writing or changing any decoder.
+
 ## Build and test
 
 Use the package-manager version declared by `packageManager` in `package.json`.
