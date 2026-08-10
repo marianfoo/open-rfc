@@ -38,9 +38,10 @@ Before opening a pull request:
 1. describe the user-visible behavior and support boundary;
 2. add the smallest failing contract or boundary test before the fix;
 3. run checks in proportion to the change: documentation-only edits need
-   `npm run check:docs:public` and `npm run docs:site:check`; product or shared
-   tooling changes need the focused test plus their applicable public, lint,
-   and package checks;
+   `npm run check:docs:public`; product or shared tooling changes need the
+   focused test plus their applicable public, lint, and package checks. See
+   "Build and test" in [`AGENTS.md`](AGENTS.md) for running a single test, and
+   for why `npm run docs:site:check` is a CI-only check;
 4. update public documentation for API, configuration, error, or compatibility
    changes;
 5. declare every source or behavioral reference used; and
