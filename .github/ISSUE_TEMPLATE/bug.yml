@@ -16,6 +16,13 @@ body:
         never ask for those in a public issue. For a suspected vulnerability use
         a private security advisory instead.
 
+        Reducing a live failure to a safe synthetic reproducer is the hard part.
+        If you would rather hand that to an AI agent, the repository ships a
+        prompt for exactly this:
+        [`report-rfc-failure.md`](https://github.com/marianfoo/open-rfc/blob/main/.claude/commands/report-rfc-failure.md).
+        It checks the supported boundary, reduces the failure without your SAP
+        data leaving your machine, and fills in every field below.
+
   - type: checkboxes
     id: redaction
     attributes:

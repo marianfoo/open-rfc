@@ -9,19 +9,26 @@ in `AGENTS.md`.
 
 ## Using a coding agent
 
-If you would rather point an AI agent at a problem than debug it yourself,
-this repository ships the process the maintainer uses:
+If you would rather point an AI agent at a problem than work through it
+yourself, this repository ships three prompts. Start with the first one if the
+failure is on your own SAP system.
 
+- [`.claude/commands/report-rfc-failure.md`](.claude/commands/report-rfc-failure.md)
+  — **you do not need a checkout for this one.** Your call fails against your
+  own system: it checks whether the case is inside the supported boundary,
+  reduces the failure to a synthetic reproducer with no SAP data in it, and
+  fills in every field of the bug template.
 - [`.claude/commands/deep-bug.md`](.claude/commands/deep-bug.md) — find the real
   root cause before changing anything, then fix it with a test that was seen to
   fail.
 - [`.claude/commands/deep-feature.md`](.claude/commands/deep-feature.md) —
   establish whether a capability fits this architecture before designing it.
 
-Claude Code runs them as `/deep-bug` and `/deep-feature`. For Codex or another
-agent, say `follow .claude/commands/deep-bug.md` — nothing in either file
-depends on which agent reads it. Both encode the redaction rules below, so an
-agent following them will not put SAP data in a pull request.
+Claude Code runs them as `/report-rfc-failure`, `/deep-bug` and
+`/deep-feature`. For Codex or another agent, say
+`follow .claude/commands/deep-bug.md` — nothing in any of them depends on which
+agent reads it. All three encode the redaction rules below, so an agent
+following them will not put SAP data in an issue or a pull request.
 
 Two documents explain why the code is shaped the way it is, which is the
 context most likely to be missing from an outside pull request:
