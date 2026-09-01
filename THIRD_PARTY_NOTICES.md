@@ -46,6 +46,45 @@ The compatibility interface names that `open-rfc` adds around those values do
 not occur in that pinned upstream source. All changes and adaptations in the
 two files named above were made by `open-rfc` contributors.
 
+## open-rfc-go (Apache-2.0)
+
+The following files are modified TypeScript adaptations by `open-rfc`
+contributors:
+
+- `src/protocol/lz4-block.ts`
+- `src/protocol/fast-serializer.ts`
+
+They use the bounded, decode-only fast-serializer work in `open-rfc-go` at
+commit `92d5d8f6e0a08ff7ac1580f461585cbde2a56939` as their implementation basis,
+specifically these upstream files:
+
+- `internal/fastser/lz4.go`
+- `internal/fastser/container.go`
+- `internal/fastser/record.go`
+- `internal/fastser/fields.go`
+
+The pinned upstream project carries this notice:
+
+    open-rfc-go
+    Copyright 2026 oisee (https://github.com/oisee)
+
+    Licensed under the Apache License, Version 2.0
+    https://www.apache.org/licenses/LICENSE-2.0
+    https://github.com/oisee/open-rfc-go
+
+The adaptations change the language and API, impose absolute allocation and
+record-count limits, require exact framing instead of attempting stream
+resynchronization, reject unknown tags and field types, copy exposed byte
+values, and clear temporary buffers on failure. The accompanying tests were
+authored for this project from neutral synthetic values; upstream packet
+capture fixtures are not redistributed.
+
+The public repository and npm package include a copy of the Apache License,
+Version 2.0 in their root `LICENSE` file. Unless required by applicable law or
+agreed to in writing, software distributed under the License is distributed
+on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+express or implied.
+
 ## Developer Certificate of Origin 1.1 (The Linux Foundation)
 
 This repository includes `DCO.md`, an unmodified verbatim copy of the Developer

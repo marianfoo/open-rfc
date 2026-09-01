@@ -43,7 +43,7 @@
     "sha256": "3ced4556246b40fe4de22316ab1da7b6ae65ea0183a6a1d62e59fe08d293a041"
   },
   "subpathExportManifests": [],
-  "declarationCount": 66,
+  "declarationCount": 68,
   "declarations": [
     {
       "path": "dist/src/client/classic-invocation.d.ts",
@@ -251,9 +251,19 @@
       "sha256": "623b27b6f95213ff77ec866e01b417a2dd31afe0d9318736e47feddea45a96e0"
     },
     {
+      "path": "dist/src/protocol/fast-serializer.d.ts",
+      "bytes": 4117,
+      "sha256": "5ad0a502731437ba29b117b98068c916913615ffe482273cce4412960be266ba"
+    },
+    {
       "path": "dist/src/protocol/gateway.d.ts",
       "bytes": 1416,
       "sha256": "8a6f70e286b7785f9306740815cc27c3057329eeb5d319ea56a2fd5bf5ef4479"
+    },
+    {
+      "path": "dist/src/protocol/lz4-block.d.ts",
+      "bytes": 1223,
+      "sha256": "61d1eda7e26a9e222f388ed53152a91bda05e83fc0ffb6b17e8caf601ddb4ab9"
     },
     {
       "path": "dist/src/protocol/message-server.d.ts",
@@ -376,5 +386,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "d8b6df85ee7c5d45428faab4c0b23d97e19ed8f6a815a1c36878eccb5b048342"
+  "aggregateSha256": "b93980a4d8a48a9358c306fa59592075bc574282fa36fbf262721d2eac39d6a8"
 }
