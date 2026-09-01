@@ -1,119 +1,51 @@
 # open-rfc contributor guide
 
-This guide applies to maintainers, contributors, and automated coding agents in
-the open-rfc repository. Keep changes within the documented product boundary
-and preserve compatibility unless a pull request explicitly changes that
-contract.
+open-rfc is an independent, SDK-free TypeScript implementation of SAP classic
+RFC. Keep the development loop small without weakening protocol correctness.
 
-## Architecture
+## Product boundaries
 
-- `src/protocol/` owns byte framing, handshakes, and classic RFC protocol
-  behavior.
-- `src/transport/` owns network routes and bounded socket or tunnel behavior.
-- `src/metadata/` and `src/values/` own metadata interpretation and value
-  serialization.
-- `src/client/`, `src/pool/`, and `src/lifecycle/` own calls, pooling,
-  cancellation, and transaction state.
-- `src/compat/` adapts the shared core to the documented compatibility APIs.
-- Public exports belong in `src/index.ts`; avoid exposing implementation-only
-  modules accidentally.
+- Keep one pure TypeScript/JavaScript package with zero runtime dependencies.
+- Never load, link, download, or redistribute the SAP NW RFC SDK or native
+  addons.
+- Keep the public API at the package root plus `./package.json`; internals are
+  not public subpaths.
+- Unknown protocol, serializer, security, or provider state fails closed.
+  Never replay a timed-out, aborted, malformed, or otherwise uncertain call.
+- Keep protocol bytes in `src/protocol`, sockets and terminal state in
+  `src/transport`, metadata/value projection in their owning modules, client
+  behavior in `src/client`, and compatibility adaptation in `src/compat`.
 
-Keep wire behavior in its owning layer. Prefer a small explicit module over a
-cross-layer shortcut, bound all input-controlled allocation and recursion, and
-fail closed for unsupported routes or options.
+The product license is Apache-2.0. New work may use project-owned knowledge,
+official documentation, neutral observations, and compatible permissive
+sources. When third-party code is reused, record its exact revision and
+required notice once in the change. Copyleft implementations may help explain
+behavior but are not copied or translated into this product.
 
-Two documents explain the reasoning behind those rules, and reading them will
-save a round of review:
+## Fast implementation loop
 
-- [`docs/architecture.md`](docs/architecture.md) — the layer diagram, the
-  ownership invariants concurrency bugs violate, the implementation ladder, and
-  the evidence hierarchy this project ranks its sources by.
-- [`docs/recurring-bug-class.md`](docs/recurring-bug-class.md) — the mistake
-  this codebase has made six times: a decoder that memorises what one system
-  happened to send. Read it before writing or changing any decoder.
+1. Preserve unrelated work and add the smallest useful regression or feature
+   contract.
+2. Implement the change at the owning layer.
+3. During iteration, build once and run the focused test directly from
+   `dist/test`.
+4. Before pushing shared or cross-layer code, run:
 
-## Build and test
+   ```sh
+   npm test
+   npm run lint
+   ```
 
-Use the package-manager version declared by `packageManager` in `package.json`.
-From a clean checkout:
+5. Run `npm run test:surface` only when exports, declarations, package
+   metadata, loaders, or build output changed. Run `npm run docs:build` only
+   for documentation or Pages changes.
 
-```sh
-npm ci --ignore-scripts --no-audit --no-fund
-npm run build
-npm run test:public
-npm run check:docs:public
-npm run lint
-npm run package:shape -- --publication-mode public-license-preflight
-```
+Focused fault, property, resource, live, or compatibility checks are useful
+when that exact boundary changes; they are not routine blockers for unrelated
+patches. Code regressions remain mandatory for product behavior.
 
-Every command above runs on Linux, macOS, and Windows. `npm run docs:site:check`
-is the one exception and is covered separately below.
+## Releases
 
-Before opening a pull request, run every applicable command above and any
-focused fault, property, resource, or compatibility test named by the changed
-component. Report suite results as pass and fail counts, from a run of the tree
-you are pushing.
-
-For a documentation-only change, `npm run check:docs:public` is the applicable
-command. Do not run the product test, lint, or package-shape suites unless the
-change also touches product code, shared tooling, package contents, or their
-contracts.
-
-### Run one test
-
-`npm run test:public` builds and then runs every file, which is rarely what you
-want while iterating. Run a single test directly instead.
-
-A `.mjs` test needs no build:
-
-```sh
-node --test test/tool-bounds.test.mjs
-```
-
-A TypeScript test runs from its compiled output in `dist/test/`, so build first.
-The build takes a few seconds:
-
-```sh
-npm run build && node --test dist/test/xml-entity-reference.test.js
-```
-
-Run the smallest relevant test while developing, and the full suite once before
-you push.
-
-### `docs:site:check` runs in CI, not locally
-
-`npm run docs:site:check` pins the SHA-256 of the documentation site's
-JavaScript bundle, so it passes only against the exact toolchain in
-`requirements-docs.txt` — a wheel closure for Linux x64 and CPython 3.13.14.
-On macOS or Windows the install fails its own hash check, so the command cannot
-pass there and a local failure says nothing about your change. On Linux:
-
-```sh
-python -m pip install --require-hashes --only-binary=:all: -r requirements-docs.txt
-```
-
-CI runs this check on every pull request regardless of your platform.
-`npm run check:docs:public` is the documentation check that runs everywhere and
-is the one to run before pushing.
-
-## Contribution rules
-
-- Read `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, and `SUPPORT.md` before
-  changing behavior.
-- Add the smallest failing contract, malformed-input, boundary, cancellation,
-  or regression test before the implementation change. **A change to product
-  code without a test is not ready**, and the test must have been seen to fail
-  without the change — a test that has never failed is not yet a test.
-- **CI must be green before a pull request merges.** The `Development result`
-  workflow runs the full public suite, lint, package shape and the documentation
-  checks on every pull request. Note that GitHub does not run pull-request
-  workflows on a **conflicting** pull request, so a merge-conflicted branch
-  reports no checks at all rather than reporting a failure — rebase or merge
-  `main` and confirm the run actually happened.
-- Preserve public API and error semantics unless the pull request documents and
-  tests an intentional compatibility change.
-- Update end-user documentation and examples whenever setup, behavior, limits,
-  or supported integrations change.
-- Never commit credentials, customer data, network traces, vendor binaries, or
-  material whose redistribution terms are unknown.
-- Sign every commit as required by `CONTRIBUTING.md` and `DCO.md`.
+Release Please owns versioning, GitHub releases, and npm publication from
+`main`. Do not publish from a development branch. The documentation workflow
+deploys Pages separately and does not block code pull requests.

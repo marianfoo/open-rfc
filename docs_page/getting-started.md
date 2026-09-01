@@ -55,9 +55,9 @@ node -p 'require("open-rfc/package.json").version'
 Do not replace the exact version with `latest`, a caret range, or a custom beta
 tag when reproducing an artifact check.
 
-Do not install a working directory into an application. Use a packaged artifact
-whose source commit, tarball hash, file inventory, and package metadata agree.
-A source checkout or version string by itself is not a release.
+Do not install a working directory into an application. Use an exact published
+package whose npm record and matching GitHub Release agree. A source checkout
+or version string by itself is not a release.
 
 Commit the resulting `package-lock.json` in the consuming application and use
 `npm ci` for repeatable deployment. Add `--ignore-scripts` only if the complete

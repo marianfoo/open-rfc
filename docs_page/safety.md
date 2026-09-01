@@ -43,9 +43,9 @@ explicit limits. Malformed or oversized input fails without partial output.
 
 ## Release authenticity
 
-Use a version only when its GitHub Release, npm metadata, tarball digest,
-receipt, and SBOM agree. A source checkout or local tarball is not automatically
-a published release.
+Use a version only when its GitHub Release, npm metadata, and matching source
+tag agree. A source checkout or local tarball is not automatically a published
+release.
 
 Public source releases include Apache-2.0 `LICENSE`, the project `NOTICE`, and a
 complete `THIRD_PARTY_NOTICES.md`. If those files or the matching release record

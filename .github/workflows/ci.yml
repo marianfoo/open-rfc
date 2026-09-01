@@ -1,4 +1,4 @@
-name: Development result
+name: CI
 
 on:
   pull_request:
@@ -9,58 +9,23 @@ permissions:
   contents: read
 
 concurrency:
-  group: development-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  OPEN_RFC_NPM_CLI_VERSION: 11.19.0
-  OPEN_RFC_DOCS_PYTHON: python
-  OPEN_RFC_CI_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
-  OPEN_RFC_CI_HEAD_SHA: ${{ github.sha }}
-
 jobs:
-  result:
-    name: Linux / Node.js 22.14
+  test:
+    name: Code tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.14.0
           cache: npm
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: 3.13.14
-      - name: Classify change scope
-        id: scope
-        run: node tools/ci_change_scope.mjs
-      - name: Install exact toolchains
-        run: |
-          npm run --silent ci:install-pinned-npm
-          npm run --silent ci:record-npm-cli
-          npm ci --ignore-scripts --no-audit --no-fund
-          python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: -r requirements-docs.txt
-          python -m pip check
-      - name: Verify the public product
-        if: steps.scope.outputs.product == 'true'
-        run: |
-          npm run test:public
-          npm run lint
-          npm run package:shape -- --publication-mode public-license-preflight
-          npm audit --omit=dev --audit-level=high
-      - name: Verify public documentation
-        run: |
-          npm run check:docs:public
-          npm run docs:site:check
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: steps.scope.outputs.product == 'true'
-        with:
-          node-version: 24
-          cache: npm
-      - name: Smoke-build on Node.js 24
-        if: steps.scope.outputs.product == 'true'
-        run: npm run build
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test
+      - run: npm run test:surface
+      - run: npm run lint

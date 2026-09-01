@@ -9,7 +9,7 @@
 | [node-rfc replacement](node-rfc.md) | Preserve the module ID with an exact npm alias or trusted tarball and use the fail-closed client and pool surface. |
 | [SAP CAP](cap.md) | Keep `@sap/cds-rfc` unchanged and override only its low-level native connector. |
 | [Configuration](configuration.md) | Choose the gateway endpoint, technical principal, authorization, bounds, and first validation flow. |
-| [Release status](status.md) | Verify that GitHub, npm, artifact digests, and the documented support record agree. |
+| [Release status](status.md) | Verify that GitHub, npm, and the documented support record agree. |
 
 ## Selected beta boundary
 

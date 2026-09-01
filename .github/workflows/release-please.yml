@@ -81,12 +81,11 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
-      - name: Install the exact verification toolchain
+      - name: Install dependencies
         # npm trusted publishing needs npm 11.5 or newer for OIDC. The pinned
         # version is well past that.
         run: |
-          npm run --silent ci:install-pinned-npm
-          npm run --silent ci:record-npm-cli
+          npm install --global npm@11.19.0 --no-audit --no-fund
           npm ci --ignore-scripts --no-audit --no-fund
       - name: Build the release tarball from the tag
         id: artifact

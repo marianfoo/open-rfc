@@ -3,7 +3,6 @@
   "module": "open-rfc",
   "packageContract": {
     "name": "open-rfc",
-    "version": "0.2.2",
     "type": "module",
     "main": "./dist/cjs/index.js",
     "module": "./dist/src/index.js",
@@ -377,5 +376,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "0421ceef6fe7023aee3aa3c754054b99902a95ecfde7e56d6739c5a4e2778cf7"
+  "aggregateSha256": "d8b6df85ee7c5d45428faab4c0b23d97e19ed8f6a815a1c36878eccb5b048342"
 }
