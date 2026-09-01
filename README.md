@@ -194,9 +194,8 @@ public subpaths. Confirm the manifest name, version, exports, and Node engine
 match the release record or the trusted details supplied with the tarball.
 The package must have no runtime dependency subtree and no native `.node`
 addon, shared library, SDK archive, executable, credential, capture, or oracle
-material. These checks are a consumer sanity test; the published release record
-also identifies the source commit, npm CLI, complete file inventory, SBOM,
-declarations, and exact root artifact.
+material. These checks are a consumer sanity test; the matching GitHub tag and
+npm record identify the released source and package.
 
 ## What works—and what does not
 
@@ -356,8 +355,8 @@ provider does not advertise.
 ## Release status
 
 A passing local test or version string is not a release claim. Check the
-matching GitHub Release, npm metadata, artifact digest, and documentation
-release-status page before adopting a version. A published 0.x beta uses a
+matching GitHub Release, exact npm metadata, and documentation release-status
+page before adopting a version. A published 0.x beta uses a
 stable pre-1.0 version on npm's normal `latest` tag, beginning with `0.2.0`;
 beta describes non-production maturity rather than a SemVer prerelease channel.
 A prerelease-valued build is outside that supported channel. Project testing

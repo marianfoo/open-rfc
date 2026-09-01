@@ -36,7 +36,6 @@ async function declarationPaths(directory) {
 function stablePackageContract(packageJson) {
   return {
     name: packageJson.name,
-    version: packageJson.version,
     type: packageJson.type,
     main: packageJson.main,
     module: packageJson.module,

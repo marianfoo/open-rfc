@@ -71,11 +71,10 @@ security or corruption risk.
 
 ## Upgrade and rollback
 
-Pin every 0.x artifact by version and SHA-256. Upgrade one version at a time,
-run clean package and representative SAP smoke tests, and use a bounded canary
-before broad deployment. Roll back by restoring the prior trusted tarball and
-its matching lockfile and compatibility settings; never mix an application,
-package record, or SBOM from different artifact digests.
+Pin every 0.x package by exact version and commit the lockfile. Upgrade one
+version at a time, run clean package and representative SAP smoke tests, and use
+a bounded canary before broad deployment. Roll back by restoring the prior
+version with its matching lockfile and compatibility settings.
 
 Operational response and safe diagnostic procedures are in
 the public [operations guide](docs_page/operations.md). Vulnerability reporting

@@ -98,8 +98,8 @@ shutdown after clients and pools have closed.
    connection retirement.
 5. Roll back the package and lockfile together if the new artifact fails.
 
-Do not mix a tarball, generated type snapshot, compatibility adapter,
-verification record, or SBOM from different commits.
+Do not mix a package, generated type snapshot, compatibility adapter,
+documentation, or lockfile from different versions.
 
 ## Incident information
 
