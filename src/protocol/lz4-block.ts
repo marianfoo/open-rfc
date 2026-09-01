@@ -1,7 +1,11 @@
 import { snapshotUint8Array } from "./bytes.js";
 
-/** Default allocation ceiling for one independently compressed LZ4 block. */
-export const DEFAULT_MAX_LZ4_BLOCK_LENGTH = 16 * 1024 * 1024;
+// Adapted and hardened for TypeScript from open-rfc-go's Apache-2.0
+// internal/fastser/lz4.go at 92d5d8f6e0a08ff7ac1580f461585cbde2a56939.
+
+/** Absolute allocation ceiling for one independently compressed LZ4 block. */
+export const MAX_LZ4_BLOCK_LENGTH = 16 * 1024 * 1024;
+export const DEFAULT_MAX_LZ4_BLOCK_LENGTH = MAX_LZ4_BLOCK_LENGTH;
 
 export type Lz4BlockDecodeErrorCode =
   | "INVALID_LENGTH"
@@ -51,10 +55,14 @@ function boundedLength(
 
 function configuredLimit(value: number | undefined, label: string): number {
   const limit = value ?? DEFAULT_MAX_LZ4_BLOCK_LENGTH;
-  if (!Number.isSafeInteger(limit) || limit < 0) {
+  if (
+    !Number.isSafeInteger(limit) ||
+    limit < 0 ||
+    limit > MAX_LZ4_BLOCK_LENGTH
+  ) {
     throw new Lz4BlockDecodeError(
       "INVALID_LENGTH",
-      `${label} must be a non-negative safe integer`,
+      `${label} must be an integer in 0..${MAX_LZ4_BLOCK_LENGTH}`,
     );
   }
   return limit;
