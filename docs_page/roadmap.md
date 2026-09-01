@@ -249,22 +249,22 @@ Promote SAProuter only if selected and exact live evidence proves route parsing,
 - **Execution:** implementation
 - **Owners:** maintainer, independent-reviewer, sap-operator
 
-Promote WebSocket business calls only if a public independently implementable fast-serializer grammar exists and the full provider, wire, and live route can be qualified.
+Promote WebSocket business calls only after the Apache-licensed public decoder basis is completed into an independently reviewable fast-serializer contract and the full provider, wire, and live route can be qualified.
 
-- **Importance — medium:** WebSocket RFC is relevant to cloud routes, but its unresolved serializer boundary makes it unsuitable as a default stable-release dependency.
-- **Risk — critical:** Guessing or restricted-source derivation of the fast serializer could create protocol corruption, provenance problems, and an unmaintainable stable claim. Domains: `correctness`, `security`, `scope`, `external-dependency`, `schedule`.
-- **Effort — XL, 30–60 person-days, low confidence:** The unknown serializer grammar dominates the estimate; provider integration, wire implementation, fuzzing, and live qualification follow only if it closes.
-- **Condition:** Required only if the accepted V1 scope decision promotes WebSocket RFC into 1.0 and an independently implementable serializer contract is available.
+- **Importance — medium:** WebSocket RFC is relevant to cloud routes, but a partial decode grammar is not enough for a stable support claim.
+- **Risk — critical:** The bounded decoder covers observed containers, records, field descriptions, and the LZ4 wrapper, but request encoding, responses, exceptions, version negotiation, and integration are not yet complete. Guessing at those gaps could cause protocol corruption and an unmaintainable stable claim. Domains: `correctness`, `security`, `scope`, `external-dependency`, `schedule`.
+- **Effort — XL, 30–60 person-days, low confidence:** The public decoder basis removes one research unknown, but the complete bidirectional contract, provider integration, wire implementation, fuzzing, and live qualification remain.
+- **Condition:** Required only if the accepted V1 scope decision promotes WebSocket RFC into 1.0 and the decoder basis can be completed into an independently implementable serializer contract.
 - **Depends on:** `roadmap.v1-01.stable-support-boundary`
 - **Risk controls:**
-  - Require a public independently implementable grammar before implementation.
+  - Keep the partial decoder internal and fail closed until the complete grammar is reviewable.
   - Fail closed and keep the route unsupported if that prerequisite does not exist.
   - Run hostile framing, limits, cancellation, and two-release live matrices after implementation.
 - **Deliverables:**
-  - Independent serializer basis decision
+  - Complete and provenance-reviewed bidirectional serializer contract
   - WebSocket provider and live qualification if feasible
 - **Acceptance criteria:**
-  - The serializer grammar is public, independently implementable, and provenance-reviewed.
+  - Request, response, exception, versioning, and compression grammar is public, independently implementable, and provenance-reviewed.
   - Unsupported serializer states fail before business I/O.
   - The exact route passes hostile offline and two-release live qualification.
 
