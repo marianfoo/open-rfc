@@ -252,8 +252,8 @@
     },
     {
       "path": "dist/src/protocol/fast-serializer.d.ts",
-      "bytes": 6278,
-      "sha256": "cb9fa53b1358e0db704dabe6b8b116855c7ce603f4064acb04f263fa2280a3d5"
+      "bytes": 7180,
+      "sha256": "6ccb1f36a6e94756c4acc144310f4b3d8e9f26218133f0f03ae2a8f912326a08"
     },
     {
       "path": "dist/src/protocol/gateway.d.ts",
@@ -262,8 +262,8 @@
     },
     {
       "path": "dist/src/protocol/lz4-block.d.ts",
-      "bytes": 1223,
-      "sha256": "61d1eda7e26a9e222f388ed53152a91bda05e83fc0ffb6b17e8caf601ddb4ab9"
+      "bytes": 2274,
+      "sha256": "3d6615600cfb3c105a38238932aa30bcd6efcc49195ca9f030132b955d60038c"
     },
     {
       "path": "dist/src/protocol/message-server.d.ts",
@@ -386,5 +386,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "ffe4182b71b858b0f34b61312bbafdda53de96359b7d54ab81dd1a207454e553"
+  "aggregateSha256": "1987e90918003b4b4e40f364b603fe34133f6a3af71ac395424f4b01f5ef644a"
 }

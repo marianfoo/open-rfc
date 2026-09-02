@@ -1,11 +1,17 @@
 import { snapshotUint8Array } from "./bytes.js";
 
-// Adapted and hardened for TypeScript from open-rfc-go's Apache-2.0
+// Decoder adapted and hardened for TypeScript from open-rfc-go's Apache-2.0
 // internal/fastser/lz4.go at 92d5d8f6e0a08ff7ac1580f461585cbde2a56939.
+// Encoder independently authored from the published LZ4 block-format grammar
+// at lz4/lz4 v1.10.0 (ebb370ca83af193212df4dcbadcc5d87bc0de2f0).
 
 /** Absolute allocation ceiling for one independently compressed LZ4 block. */
 export const MAX_LZ4_BLOCK_LENGTH = 16 * 1024 * 1024;
 export const DEFAULT_MAX_LZ4_BLOCK_LENGTH = MAX_LZ4_BLOCK_LENGTH;
+export const MAX_LZ4_ENCODED_BLOCK_LENGTH =
+  MAX_LZ4_BLOCK_LENGTH + Math.floor(MAX_LZ4_BLOCK_LENGTH / 255) + 16;
+export const DEFAULT_MAX_LZ4_ENCODED_BLOCK_LENGTH =
+  MAX_LZ4_ENCODED_BLOCK_LENGTH;
 
 export type Lz4BlockDecodeErrorCode =
   | "INVALID_LENGTH"
@@ -32,6 +38,27 @@ export interface Lz4BlockDecodeOptions {
   readonly maxOutputLength?: number;
 }
 
+export type Lz4BlockEncodeErrorCode =
+  | "INVALID_LENGTH"
+  | "INPUT_LIMIT_EXCEEDED"
+  | "OUTPUT_LIMIT_EXCEEDED";
+
+/** A bounded failure from the deterministic raw LZ4 block encoder. */
+export class Lz4BlockEncodeError extends Error {
+  readonly code: Lz4BlockEncodeErrorCode;
+
+  constructor(code: Lz4BlockEncodeErrorCode, message: string) {
+    super(message);
+    this.name = "Lz4BlockEncodeError";
+    this.code = code;
+  }
+}
+
+export interface Lz4BlockEncodeOptions {
+  readonly maxInputLength?: number;
+  readonly maxOutputLength?: number;
+}
+
 function boundedLength(
   value: number,
   label: string,
@@ -53,16 +80,17 @@ function boundedLength(
   return value;
 }
 
-function configuredLimit(value: number | undefined, label: string): number {
-  const limit = value ?? DEFAULT_MAX_LZ4_BLOCK_LENGTH;
-  if (
-    !Number.isSafeInteger(limit) ||
-    limit < 0 ||
-    limit > MAX_LZ4_BLOCK_LENGTH
-  ) {
+function configuredLimit(
+  value: number | undefined,
+  fallback: number,
+  maximum: number,
+  label: string,
+): number {
+  const limit = value ?? fallback;
+  if (!Number.isSafeInteger(limit) || limit < 0 || limit > maximum) {
     throw new Lz4BlockDecodeError(
       "INVALID_LENGTH",
-      `${label} must be an integer in 0..${MAX_LZ4_BLOCK_LENGTH}`,
+      `${label} must be an integer in 0..${maximum}`,
     );
   }
   return limit;
@@ -83,10 +111,14 @@ export function decodeLz4Block(
 ): Buffer {
   const maxInputLength = configuredLimit(
     options.maxInputLength,
+    DEFAULT_MAX_LZ4_ENCODED_BLOCK_LENGTH,
+    MAX_LZ4_ENCODED_BLOCK_LENGTH,
     "maxInputLength",
   );
   const maxOutputLength = configuredLimit(
     options.maxOutputLength,
+    DEFAULT_MAX_LZ4_BLOCK_LENGTH,
+    MAX_LZ4_BLOCK_LENGTH,
     "maxOutputLength",
   );
   const source = snapshotUint8Array(input, "LZ4 block");
@@ -210,5 +242,168 @@ export function decodeLz4Block(
     throw error;
   } finally {
     source.fill(0);
+  }
+}
+
+function configuredEncodeLimit(
+  value: number | undefined,
+  fallback: number,
+  maximum: number,
+  label: string,
+): number {
+  const limit = value ?? fallback;
+  if (!Number.isSafeInteger(limit) || limit < 0 || limit > maximum) {
+    throw new Lz4BlockEncodeError(
+      "INVALID_LENGTH",
+      `${label} must be an integer in 0..${maximum}`,
+    );
+  }
+  return limit;
+}
+
+function encodedLengthBound(inputLength: number): number {
+  if (inputLength === 0) return 1;
+  return inputLength + Math.floor(inputLength / 255) + 16;
+}
+
+/**
+ * Encode one deterministic independent LZ4 block.
+ *
+ * The encoder uses a bounded 64 KiB-window greedy match search and preserves
+ * the published independent-block ending conditions: the last five source
+ * bytes remain literals and the last match starts at least twelve bytes before
+ * the end. The raw block carries no size or checksum metadata.
+ */
+export function encodeLz4Block(
+  input: Uint8Array,
+  options: Lz4BlockEncodeOptions = {},
+): Buffer {
+  const maxInputLength = configuredEncodeLimit(
+    options.maxInputLength,
+    DEFAULT_MAX_LZ4_BLOCK_LENGTH,
+    MAX_LZ4_BLOCK_LENGTH,
+    "maxInputLength",
+  );
+  const maxOutputLength = configuredEncodeLimit(
+    options.maxOutputLength,
+    DEFAULT_MAX_LZ4_ENCODED_BLOCK_LENGTH,
+    MAX_LZ4_ENCODED_BLOCK_LENGTH,
+    "maxOutputLength",
+  );
+  const source = snapshotUint8Array(input, "LZ4 encoder input");
+  let output: Buffer | undefined;
+  try {
+    if (source.byteLength > maxInputLength) {
+      throw new Lz4BlockEncodeError(
+        "INPUT_LIMIT_EXCEEDED",
+        `LZ4 input length ${source.byteLength} exceeds configured limit ${maxInputLength}`,
+      );
+    }
+
+    const outputCapacity = Math.min(
+      encodedLengthBound(source.byteLength),
+      maxOutputLength,
+    );
+    output = Buffer.allocUnsafe(outputCapacity);
+    let outputOffset = 0;
+
+    const requireOutput = (length: number): void => {
+      if (length > output!.byteLength - outputOffset) {
+        throw new Lz4BlockEncodeError(
+          "OUTPUT_LIMIT_EXCEEDED",
+          `LZ4 encoded block exceeds configured limit ${maxOutputLength}`,
+        );
+      }
+    };
+    const writeByte = (value: number): void => {
+      requireOutput(1);
+      output![outputOffset] = value;
+      outputOffset += 1;
+    };
+    const writeExtendedLength = (length: number): void => {
+      if (length < 15) return;
+      let remainder = length - 15;
+      while (remainder >= 0xff) {
+        writeByte(0xff);
+        remainder -= 0xff;
+      }
+      writeByte(remainder);
+    };
+    const writeSource = (start: number, length: number): void => {
+      requireOutput(length);
+      source.copy(output!, outputOffset, start, start + length);
+      outputOffset += length;
+    };
+
+    if (source.byteLength === 0) {
+      writeByte(0);
+      return Buffer.from(output.subarray(0, outputOffset));
+    }
+
+    const hashTable = new Int32Array(1 << 16);
+    hashTable.fill(-1);
+    const hashAt = (offset: number): number =>
+      Math.imul(source.readUInt32LE(offset), 0x9e37_79b1) >>> 16;
+
+    let anchor = 0;
+    let position = 0;
+    const lastMatchStart = source.byteLength - 12;
+    const matchEndLimit = source.byteLength - 5;
+
+    while (position <= lastMatchStart) {
+      const hash = hashAt(position);
+      const candidate = hashTable[hash]!;
+      hashTable[hash] = position;
+      const distance = position - candidate;
+      if (
+        candidate < 0 ||
+        distance > 0xffff ||
+        source.readUInt32LE(candidate) !== source.readUInt32LE(position)
+      ) {
+        position += 1;
+        continue;
+      }
+
+      let matchLength = 4;
+      while (
+        position + matchLength < matchEndLimit &&
+        source[candidate + matchLength] === source[position + matchLength]
+      ) {
+        matchLength += 1;
+      }
+
+      const literalLength = position - anchor;
+      const encodedMatchLength = matchLength - 4;
+      writeByte(
+        (Math.min(literalLength, 15) << 4) |
+          Math.min(encodedMatchLength, 15),
+      );
+      writeExtendedLength(literalLength);
+      writeSource(anchor, literalLength);
+      requireOutput(2);
+      output.writeUInt16LE(distance, outputOffset);
+      outputOffset += 2;
+      writeExtendedLength(encodedMatchLength);
+
+      const matchStart = position;
+      position += matchLength;
+      anchor = position;
+      for (
+        let update = matchStart + 1;
+        update < position && update + 4 <= source.byteLength;
+        update += 1
+      ) {
+        hashTable[hashAt(update)] = update;
+      }
+    }
+
+    const finalLiteralLength = source.byteLength - anchor;
+    writeByte(Math.min(finalLiteralLength, 15) << 4);
+    writeExtendedLength(finalLiteralLength);
+    writeSource(anchor, finalLiteralLength);
+    return Buffer.from(output.subarray(0, outputOffset));
+  } finally {
+    source.fill(0);
+    output?.fill(0);
   }
 }
