@@ -249,12 +249,12 @@ Promote SAProuter only if selected and exact live evidence proves route parsing,
 - **Execution:** implementation
 - **Owners:** maintainer, independent-reviewer, sap-operator
 
-Promote WebSocket business calls only after the Apache-licensed public decoder basis is completed into an independently reviewable fast-serializer contract and the full provider, wire, and live route can be qualified.
+Promote WebSocket business calls only after the Apache-licensed public codec basis is completed into an independently reviewable fast-serializer contract and the full provider, wire, and live route can be qualified.
 
-- **Importance — medium:** WebSocket RFC is relevant to cloud routes, but a partial decode grammar is not enough for a stable support claim.
-- **Risk — critical:** The bounded decoder covers observed containers, records, field descriptions, and the LZ4 wrapper, but request encoding, responses, exceptions, version negotiation, and integration are not yet complete. Guessing at those gaps could cause protocol corruption and an unmaintainable stable claim. Domains: `correctness`, `security`, `scope`, `external-dependency`, `schedule`.
-- **Effort — XL, 30–60 person-days, low confidence:** The public decoder basis removes one research unknown, but the complete bidirectional contract, provider integration, wire implementation, fuzzing, and live qualification remain.
-- **Condition:** Required only if the accepted V1 scope decision promotes WebSocket RFC into 1.0 and the decoder basis can be completed into an independently implementable serializer contract.
+- **Importance — medium:** WebSocket RFC is relevant to cloud routes, but low-level decode and encode primitives are not enough for a stable support claim.
+- **Risk — critical:** The bounded codec covers observed containers, records, field descriptions, and LZ4 decoding, but complete parameter-graph encoding, responses, exceptions, compression production, version negotiation, and integration are not yet complete. Guessing at those gaps could cause protocol corruption and an unmaintainable stable claim. Domains: `correctness`, `security`, `scope`, `external-dependency`, `schedule`.
+- **Effort — XL, 30–60 person-days, low confidence:** The public codec basis removes several research unknowns, but the complete bidirectional contract, provider integration, wire implementation, fuzzing, and live qualification remain.
+- **Condition:** Required only if the accepted V1 scope decision promotes WebSocket RFC into 1.0 and the codec basis can be completed into an independently implementable serializer contract.
 - **Depends on:** `roadmap.v1-01.stable-support-boundary`
 - **Risk controls:**
   - Keep the partial decoder internal and fail closed until the complete grammar is reviewable.

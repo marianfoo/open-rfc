@@ -54,7 +54,7 @@ contributors:
 - `src/protocol/lz4-block.ts`
 - `src/protocol/fast-serializer.ts`
 
-They use the bounded, decode-only fast-serializer work in `open-rfc-go` at
+They use the bounded fast-serializer work in `open-rfc-go` at
 commit `92d5d8f6e0a08ff7ac1580f461585cbde2a56939` as their implementation basis,
 specifically these upstream files:
 
@@ -75,9 +75,12 @@ The pinned upstream project carries this notice:
 The adaptations change the language and API, impose absolute allocation and
 record-count limits, require exact framing instead of attempting stream
 resynchronization, reject unknown tags and field types, copy exposed byte
-values, and clear temporary buffers on failure. The accompanying tests were
-authored for this project from neutral synthetic values; upstream packet
-capture fixtures are not redistributed.
+values, and clear temporary buffers on failure. Record encoding adapts the
+upstream `EncodeRecord` framing while rejecting rather than truncating values;
+the strict item, STRING, record-stream, and field-announcement encoders are
+TypeScript additions built from the same decoded grammar. The accompanying
+tests were authored for this project from neutral synthetic values; upstream
+packet-capture fixtures are not redistributed.
 
 The public repository and npm package include a copy of the Apache License,
 Version 2.0 in their root `LICENSE` file. Unless required by applicable law or
