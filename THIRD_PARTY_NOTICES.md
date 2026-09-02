@@ -56,6 +56,7 @@ contributors:
 - `src/protocol/logon-ticket.ts`
 - `src/protocol/cpic.ts`
 - `src/protocol/rfc-callback.ts`
+- `src/metadata/rfc-structure-definition.ts`
 - `src/values/classic-xrfc.ts`
 - `src/values/recursive-xrfc.ts`
 - `src/values/recursive-classic-xrfc.ts`
@@ -72,6 +73,7 @@ specifically these upstream files:
 - `internal/cpic/logon.go`
 - `internal/rfcserver/request.go`
 - `internal/rfcserver/response.go`
+- `internal/metadata/structure_definition.go`
 - `internal/client/session.go`
 - `rfc/callback.go`
 - `internal/xrfc/classic_xrfc.go`
@@ -124,6 +126,12 @@ The xRFC adaptation accepts SAP's MIME-style Base64 line wrapping for XSTRING
 cells. The TypeScript decoders remove only CR and LF before canonical Base64
 validation, retain the existing decoded and aggregate byte limits, and continue
 to reject spaces and all other non-canonical text.
+
+The structure-definition adaptation normalizes `RFC_FIELDS` rows into their
+authoritative returned order because included and appended DDIC components can
+repeat or skip informational `POSITION` values. It retains unique-name,
+non-overlap, non-negative, and total-structure bounds before exposing the
+normalized definition.
 
 The public repository and npm package include a copy of the Apache License,
 Version 2.0 in their root `LICENSE` file. Unless required by applicable law or
