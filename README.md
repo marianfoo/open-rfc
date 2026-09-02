@@ -206,10 +206,10 @@ npm record identify the released source and package.
   tables, STRING/XSTRING, and configurable INT8/BCD projection are implemented
   for the selected classic beta. xRFC is not a beta serializer claim.
 - The source contains an internal, bounded foundation for decoding and encoding
-  established fast-serializer items, records, field announcements, and exact
-  elementary INT4/CHAR/STRING parameter blocks, plus a decode-only LZ4 block
-  wrapper. It is not a public API, is not wired into client calls, and does not
-  make WebSocket RFC or compression supported.
+  established fast-serializer items, records, field announcements, exact
+  elementary INT4/CHAR/STRING parameter blocks and their self-closing `0x5001`
+  items, plus bounded LZ4 compression and decompression. It is not a public API,
+  is not wired into client calls, and does not make WebSocket RFC supported.
 - `Client`, `Pool`, and `RFCClient` cover the declared archived `node-rfc` and
   modern connector surfaces through ESM, CommonJS, and TypeScript declarations.
 - Message-server and SAProuter routing are implemented and tested offline, but

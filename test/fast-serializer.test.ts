@@ -13,11 +13,14 @@ import {
   decodeFastSerializerRecord,
   decodeFastSerializerRecords,
   decodeFastSerializerScalarParameter,
+  decodeFastSerializerScalarParameterItem,
+  encodeFastSerializerCompressedBlock,
   encodeFastSerializerItem,
   encodeFastSerializerParameterAnnouncement,
   encodeFastSerializerRecord,
   encodeFastSerializerRecords,
   encodeFastSerializerScalarParameter,
+  encodeFastSerializerScalarParameterItem,
   fastSerializerTypeName,
 } from "../src/protocol/fast-serializer.js";
 
@@ -137,6 +140,50 @@ test("decodes a header-bounded LZ4 block and reports its exact extent", () => {
   assert.equal(decoded.offset, prefix.byteLength);
   assert.equal(decoded.uncompressedLength, expected.byteLength);
   assert.equal(decoded.bytesConsumed, encoded.byteLength);
+});
+
+test("encodes a bounded fast-serializer LZ4 block without retaining input", () => {
+  const value = Buffer.from("compressible-fast-serializer-value:".repeat(64));
+  const expected = Buffer.from(value);
+  const encoded = encodeFastSerializerCompressedBlock(value);
+  value.fill(0);
+
+  assert.equal(encoded.readUInt32LE(0), expected.byteLength);
+  assert.equal(encoded.readUInt32LE(4), encoded.byteLength - 8);
+  assert.ok(encoded.byteLength < expected.byteLength);
+  assert.deepEqual(decodeFastSerializerCompressedBlock(encoded).data, expected);
+});
+
+test("refuses empty, incompressible, and over-budget compressed blocks", () => {
+  assert.throws(
+    () => encodeFastSerializerCompressedBlock(Buffer.alloc(0)),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "MALFORMED_COMPRESSION",
+  );
+
+  let state = 0x434f_4d50;
+  const random = Buffer.alloc(513);
+  for (let index = 0; index < random.byteLength; index += 1) {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    random[index] = state & 0xff;
+  }
+  assert.throws(
+    () => encodeFastSerializerCompressedBlock(random),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "COMPRESSION_NOT_BENEFICIAL",
+  );
+  assert.throws(
+    () => encodeFastSerializerCompressedBlock(Buffer.alloc(64, 0x41), {
+      maxUncompressedLength: 63,
+    }),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "COMPRESSION_LIMIT_EXCEEDED",
+  );
 });
 
 test("rejects inconsistent, truncated, corrupt, and oversized compression headers", () => {
@@ -491,6 +538,7 @@ test("encodes and decodes the three established scalar parameter blocks", () => 
     assert.deepEqual(decodeFastSerializerScalarParameter(actual), {
       typeName: input.typeName,
       generated: false,
+      compressed: false,
       typeCode: input.typeCode,
       ...(input.typeCode === FastSerializerTypeCode.Character
         ? { width: input.width }
@@ -594,15 +642,24 @@ test("rejects scalar blocks whose metadata, value, or terminator is ambiguous", 
       /positive even byte count/u,
     );
   }
-  assert.throws(
-    () => encodeFastSerializerScalarParameter({
-      typeName: "STRING",
-      typeCode: FastSerializerTypeCode.String,
-      value: Buffer.alloc(513, 0x41),
-    }),
-    (error: unknown) =>
-      error instanceof FastSerializerProtocolError &&
-      error.code === "COMPRESSION_LIMIT_EXCEEDED",
+  const compressedScalar = encodeFastSerializerScalarParameter({
+    typeName: "STRING",
+    typeCode: FastSerializerTypeCode.String,
+    value: Buffer.alloc(513, 0x41),
+  });
+  const decodedCompressed = decodeFastSerializerScalarParameter(compressedScalar);
+  assert.equal(decodedCompressed.compressed, true);
+  assert.equal(decodedCompressed.value.byteLength, 513);
+  assert.equal(decodedCompressed.value[512], 0x41);
+  const descriptorCollision = encodeFastSerializerScalarParameter({
+    typeName: "STRING",
+    typeCode: FastSerializerTypeCode.String,
+    value: Buffer.alloc(561, 0x42),
+  });
+  assert.equal(descriptorCollision[0], FastSerializerRecordTag.Descriptor);
+  assert.equal(
+    decodeFastSerializerScalarParameter(descriptorCollision).value.byteLength,
+    561,
   );
   const literalBoundary = encodeFastSerializerScalarParameter({
     typeName: "STRING",
@@ -612,6 +669,52 @@ test("rejects scalar blocks whose metadata, value, or terminator is ambiguous", 
   assert.equal(
     decodeFastSerializerScalarParameter(literalBoundary).value.byteLength,
     512,
+  );
+});
+
+test("encodes and decodes exact literal and compressed 0x5001 scalar items", () => {
+  const literal = encodeFastSerializerScalarParameterItem({
+    typeName: "I",
+    typeCode: FastSerializerTypeCode.Int4,
+    value: Buffer.from([42, 0, 0, 0]),
+  });
+  const literalItem = decodeFastSerializerItem(literal);
+  assert.equal(literalItem.id, FAST_SERIALIZER_PARAMETER_ITEM_ID);
+  assert.equal(literal.readUInt16BE(literal.byteLength - 2), literalItem.id);
+  assert.deepEqual(decodeFastSerializerScalarParameterItem(literal), {
+    parameter: {
+      typeName: "I",
+      generated: false,
+      compressed: false,
+      typeCode: FastSerializerTypeCode.Int4,
+      value: Buffer.from([42, 0, 0, 0]),
+      bytesConsumed: literalItem.data.byteLength,
+    },
+    offset: 0,
+    bytesConsumed: literal.byteLength,
+  });
+
+  const compressedItem = encodeFastSerializerScalarParameterItem({
+    typeName: "STRING",
+    typeCode: FastSerializerTypeCode.String,
+    value: Buffer.alloc(4_096, 0x5a),
+  });
+  const decoded = decodeFastSerializerScalarParameterItem(compressedItem);
+  assert.equal(decoded.parameter.compressed, true);
+  assert.equal(decoded.parameter.value.byteLength, 4_096);
+  assert.ok(compressedItem.byteLength < 256);
+
+  assert.throws(
+    () => decodeFastSerializerScalarParameterItem(
+      item(0x0130, encodeFastSerializerScalarParameter({
+        typeName: "I",
+        typeCode: FastSerializerTypeCode.Int4,
+        value: Buffer.alloc(4),
+      })),
+    ),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "MALFORMED_ITEM",
   );
 });
 
@@ -634,6 +737,7 @@ test("arbitrary short protocol inputs terminate inside fixed limits", () => {
       () => decodeFastSerializerRecords(input, { maxRecords: 32 }),
       () => decodeFastSerializerParameterAnnouncement(input),
       () => decodeFastSerializerScalarParameter(input),
+      () => decodeFastSerializerScalarParameterItem(input),
     ]) {
       try {
         decode();

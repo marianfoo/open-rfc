@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   DEFAULT_MAX_LZ4_BLOCK_LENGTH,
   Lz4BlockDecodeError,
+  Lz4BlockEncodeError,
   decodeLz4Block,
+  encodeLz4Block,
 } from "../src/protocol/lz4-block.js";
 
 function literalBlock(value: Uint8Array): Buffer {
@@ -49,6 +51,82 @@ test("decodes multiple sequences and an extended match", () => {
     decodeLz4Block(compressed, 27).toString(),
     "abcabcabcabcabcabcabcatail!",
   );
+});
+
+test("encodes raw LZ4 blocks across literal and match-length boundaries", () => {
+  let state = 0x4c5a_3445;
+  const random = (): number => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return state >>> 0;
+  };
+
+  for (const length of [0, 1, 4, 12, 13, 14, 15, 16, 269, 270, 271, 525, 4096]) {
+    const expected = Buffer.alloc(length);
+    for (let index = 0; index < expected.byteLength; index += 1) {
+      expected[index] = random() & 0xff;
+    }
+    const encoded = encodeLz4Block(expected);
+    assert.deepEqual(decodeLz4Block(encoded, expected.byteLength), expected);
+    if (length < 13) assert.deepEqual(encoded, literalBlock(expected));
+  }
+
+  const repeated = Buffer.from("open-rfc:".repeat(8_192));
+  const encoded = encodeLz4Block(repeated);
+  assert.ok(encoded.byteLength < repeated.byteLength / 100);
+  assert.deepEqual(decodeLz4Block(encoded, repeated.byteLength), repeated);
+});
+
+test("LZ4 encoding snapshots caller bytes and enforces allocation limits", () => {
+  class HostileGeometry extends Uint8Array {
+    override get byteLength(): number {
+      throw new Error("caller byteLength getter must not run");
+    }
+  }
+
+  const original = Buffer.from("bounded-source-".repeat(32));
+  const source = new HostileGeometry(original);
+  const encoded = encodeLz4Block(source);
+  source.fill(0);
+  assert.deepEqual(decodeLz4Block(encoded, original.byteLength), original);
+
+  assert.throws(
+    () => encodeLz4Block(Buffer.alloc(9), { maxInputLength: 8 }),
+    (error: unknown) =>
+      error instanceof Lz4BlockEncodeError &&
+      error.code === "INPUT_LIMIT_EXCEEDED",
+  );
+  assert.throws(
+    () => encodeLz4Block(Buffer.from("hello"), { maxOutputLength: 5 }),
+    (error: unknown) =>
+      error instanceof Lz4BlockEncodeError &&
+      error.code === "OUTPUT_LIMIT_EXCEEDED",
+  );
+});
+
+test("random LZ4 encoder inputs round-trip within fixed bounds", () => {
+  let state = 0x454e_434f;
+  const random = (): number => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return state >>> 0;
+  };
+
+  for (let run = 0; run < 1_024; run += 1) {
+    const input = Buffer.alloc(random() % 2_049);
+    for (let index = 0; index < input.byteLength; index += 1) {
+      input[index] = random() & 0xff;
+    }
+    if (run % 3 === 0) {
+      for (let index = 32; index < input.byteLength; index += 1) {
+        input[index] = input[index % 32]!;
+      }
+    }
+    const encoded = encodeLz4Block(input);
+    assert.deepEqual(decodeLz4Block(encoded, input.byteLength), input);
+  }
 });
 
 test("rejects corrupt, truncated, oversized, and size-mismatched blocks", () => {

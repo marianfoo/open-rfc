@@ -2,7 +2,9 @@ import { snapshotUint8Array } from "./bytes.js";
 import {
   DEFAULT_MAX_LZ4_BLOCK_LENGTH,
   Lz4BlockDecodeError,
+  Lz4BlockEncodeError,
   decodeLz4Block,
+  encodeLz4Block,
 } from "./lz4-block.js";
 
 // Adapted and made strict/fail-closed for TypeScript from open-rfc-go's
@@ -42,6 +44,7 @@ export type FastSerializerProtocolErrorCode =
   | "ITEM_LIMIT_EXCEEDED"
   | "MALFORMED_ITEM"
   | "COMPRESSION_LIMIT_EXCEEDED"
+  | "COMPRESSION_NOT_BENEFICIAL"
   | "MALFORMED_COMPRESSION"
   | "RECORD_LIMIT_EXCEEDED"
   | "UNSUPPORTED_RECORD_TAG"
@@ -134,6 +137,7 @@ export interface FastSerializerParameterAnnouncementInput {
 export interface FastSerializerScalarParameter {
   readonly typeName: string;
   readonly generated: boolean;
+  readonly compressed: boolean;
   readonly typeCode: FastSerializerTypeCode;
   readonly width?: number;
   readonly value: Buffer;
@@ -147,6 +151,12 @@ export interface FastSerializerScalarParameterInput {
   readonly value: Uint8Array;
 }
 
+export interface FastSerializerScalarParameterItem {
+  readonly parameter: FastSerializerScalarParameter;
+  readonly offset: number;
+  readonly bytesConsumed: number;
+}
+
 const CHARACTER_FLAG = 0x80;
 const STRING_LENGTH_FLAG = 0xc000;
 const PARAMETER_HEADER = 0x44;
@@ -155,6 +165,18 @@ const MAX_STRING_RECORD_LENGTH = 0x3fff;
 const MAX_LITERAL_SCALAR_VALUE_LENGTH = 512;
 const TYPE_DESCRIPTOR_PREFIX = Buffer.from("\\TYPE=", "ascii");
 const SCALAR_FIELD_NAME = Buffer.from("TABLE_LINE", "ascii");
+
+function isExactCompressedEnvelope(input: Buffer): boolean {
+  if (input.byteLength < COMPRESSION_HEADER_LENGTH) return false;
+  const uncompressedLength = input.readUInt32LE(0);
+  const compressedLength = input.readUInt32LE(4);
+  return uncompressedLength > 0 &&
+    uncompressedLength <= DEFAULT_MAX_LZ4_BLOCK_LENGTH &&
+    compressedLength > 0 &&
+    compressedLength <= uncompressedLength &&
+    compressedLength <= DEFAULT_MAX_LZ4_BLOCK_LENGTH &&
+    COMPRESSION_HEADER_LENGTH + compressedLength === input.byteLength;
+}
 
 function configuredInteger(
   value: number | undefined,
@@ -419,6 +441,78 @@ export function decodeFastSerializerCompressedBlock(
     });
   } finally {
     snapshot.fill(0);
+  }
+}
+
+/** Encode one SAP fast-serializer LZ4 block with exact size metadata. */
+export function encodeFastSerializerCompressedBlock(
+  input: Uint8Array,
+  options: FastSerializerCompressionOptions = {},
+): Buffer {
+  const maxCompressedLength = configuredInteger(
+    options.maxCompressedLength,
+    DEFAULT_MAX_LZ4_BLOCK_LENGTH,
+    "maxCompressedLength",
+    DEFAULT_MAX_LZ4_BLOCK_LENGTH,
+  );
+  const maxUncompressedLength = configuredInteger(
+    options.maxUncompressedLength,
+    DEFAULT_MAX_LZ4_BLOCK_LENGTH,
+    "maxUncompressedLength",
+    DEFAULT_MAX_LZ4_BLOCK_LENGTH,
+  );
+  const snapshot = snapshotUint8Array(
+    input,
+    "fast-serializer compression input",
+  );
+  let block: Buffer | undefined;
+  try {
+    if (snapshot.byteLength === 0) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_COMPRESSION",
+        "fast-serializer compression input must not be empty",
+        0,
+      );
+    }
+    if (snapshot.byteLength > maxUncompressedLength) {
+      throw new FastSerializerProtocolError(
+        "COMPRESSION_LIMIT_EXCEEDED",
+        "fast-serializer compression input exceeds configured limits",
+        0,
+      );
+    }
+    try {
+      block = encodeLz4Block(snapshot, {
+        maxInputLength: maxUncompressedLength,
+        maxOutputLength: maxCompressedLength,
+      });
+    } catch (error) {
+      if (!(error instanceof Lz4BlockEncodeError)) throw error;
+      throw new FastSerializerProtocolError(
+        "COMPRESSION_LIMIT_EXCEEDED",
+        "fast-serializer compressed block exceeds configured limits",
+        0,
+        { cause: error },
+      );
+    }
+    if (block.byteLength > snapshot.byteLength) {
+      throw new FastSerializerProtocolError(
+        "COMPRESSION_NOT_BENEFICIAL",
+        "fast-serializer input does not fit the compressed-size contract",
+        0,
+      );
+    }
+
+    const encoded = Buffer.allocUnsafe(
+      COMPRESSION_HEADER_LENGTH + block.byteLength,
+    );
+    encoded.writeUInt32LE(snapshot.byteLength, 0);
+    encoded.writeUInt32LE(block.byteLength, 4);
+    block.copy(encoded, COMPRESSION_HEADER_LENGTH);
+    return encoded;
+  } finally {
+    snapshot.fill(0);
+    block?.fill(0);
   }
 }
 
@@ -978,23 +1072,16 @@ function scalarRule(
   }
 }
 
-/**
- * Decode one exact elementary parameter block without scanning or accepting
- * surrounding bytes. Only the three value grammars established end to end are
- * admitted; composite fields and normalized scalar forms remain separate work.
- */
-export function decodeFastSerializerScalarParameter(
-  input: Uint8Array,
+function decodeScalarParameterFromSnapshot(
+  input: Buffer,
+  compressed: boolean,
+  bytesConsumed: number,
 ): FastSerializerScalarParameter {
-  const snapshot = snapshotUint8Array(
-    input,
-    "fast-serializer scalar parameter",
-  );
   let retainedValue: Buffer | undefined;
   let succeeded = false;
   try {
     let cursor = 0;
-    const descriptor = decodeRecordFromSnapshot(snapshot, cursor);
+    const descriptor = decodeRecordFromSnapshot(input, cursor);
     const typeName = fastSerializerTypeName(descriptor);
     if (typeName === undefined) {
       throw new FastSerializerProtocolError(
@@ -1005,8 +1092,8 @@ export function decodeFastSerializerScalarParameter(
     }
     cursor += descriptor.bytesConsumed;
 
-    requireBytes(snapshot, cursor, 1, "scalar parameter type code");
-    const typeCode = snapshot[cursor]! as FastSerializerTypeCode;
+    requireBytes(input, cursor, 1, "scalar parameter type code");
+    const typeCode = input[cursor]! as FastSerializerTypeCode;
     cursor += 1;
     const rule = scalarRule(typeCode);
     if (rule === undefined) {
@@ -1019,8 +1106,8 @@ export function decodeFastSerializerScalarParameter(
 
     let width: number | undefined;
     if (typeCode === FastSerializerTypeCode.Character) {
-      requireBytes(snapshot, cursor, 2, "scalar parameter character width");
-      width = snapshot.readUInt16LE(cursor);
+      requireBytes(input, cursor, 2, "scalar parameter character width");
+      width = input.readUInt16LE(cursor);
       if (width === 0 || width % 2 !== 0) {
         throw new FastSerializerProtocolError(
           "MALFORMED_PARAMETER",
@@ -1031,11 +1118,11 @@ export function decodeFastSerializerScalarParameter(
       cursor += 2;
     }
 
-    requireBytes(snapshot, cursor, 1, "scalar parameter field-name length");
-    const nameLength = snapshot[cursor]!;
+    requireBytes(input, cursor, 1, "scalar parameter field-name length");
+    const nameLength = input[cursor]!;
     cursor += 1;
-    requireBytes(snapshot, cursor, nameLength, "scalar parameter field name");
-    const fieldName = snapshot.subarray(cursor, cursor + nameLength);
+    requireBytes(input, cursor, nameLength, "scalar parameter field name");
+    const fieldName = input.subarray(cursor, cursor + nameLength);
     if (!fieldName.equals(SCALAR_FIELD_NAME)) {
       throw new FastSerializerProtocolError(
         "MALFORMED_PARAMETER",
@@ -1045,7 +1132,7 @@ export function decodeFastSerializerScalarParameter(
     }
     cursor += nameLength;
 
-    const value = decodeRecordFromSnapshot(snapshot, cursor);
+    const value = decodeRecordFromSnapshot(input, cursor);
     retainedValue = value.value;
     if (value.tag !== rule.valueTag) {
       throw new FastSerializerProtocolError(
@@ -1054,7 +1141,10 @@ export function decodeFastSerializerScalarParameter(
         cursor,
       );
     }
-    if (value.value.byteLength > MAX_LITERAL_SCALAR_VALUE_LENGTH) {
+    if (
+      !compressed &&
+      value.value.byteLength > MAX_LITERAL_SCALAR_VALUE_LENGTH
+    ) {
       throw new FastSerializerProtocolError(
         "COMPRESSION_LIMIT_EXCEEDED",
         "fast-serializer scalar value requires compression support",
@@ -1064,7 +1154,7 @@ export function decodeFastSerializerScalarParameter(
     cursor += value.bytesConsumed;
 
     if (rule.terminalEnd) {
-      const terminal = decodeRecordFromSnapshot(snapshot, cursor);
+      const terminal = decodeRecordFromSnapshot(input, cursor);
       if (terminal.tag !== FastSerializerRecordTag.End) {
         throw new FastSerializerProtocolError(
           "MALFORMED_PARAMETER",
@@ -1074,7 +1164,7 @@ export function decodeFastSerializerScalarParameter(
       }
       cursor += terminal.bytesConsumed;
     }
-    if (cursor !== snapshot.byteLength) {
+    if (cursor !== input.byteLength) {
       throw new FastSerializerProtocolError(
         "MALFORMED_PARAMETER",
         "fast-serializer scalar parameter has trailing bytes",
@@ -1085,16 +1175,58 @@ export function decodeFastSerializerScalarParameter(
     const result = Object.freeze({
       typeName,
       generated: typeName.startsWith("%_T"),
+      compressed,
       typeCode,
       ...(width === undefined ? {} : { width }),
       value: value.value,
-      bytesConsumed: cursor,
+      bytesConsumed,
     });
     succeeded = true;
     return result;
   } finally {
     if (!succeeded) retainedValue?.fill(0);
+  }
+}
+
+/**
+ * Decode one exact literal or compressed elementary parameter block without
+ * scanning or accepting surrounding bytes. Only the three value grammars
+ * established end to end are admitted; composite fields remain separate work.
+ */
+export function decodeFastSerializerScalarParameter(
+  input: Uint8Array,
+): FastSerializerScalarParameter {
+  const snapshot = snapshotUint8Array(
+    input,
+    "fast-serializer scalar parameter",
+  );
+  let uncompressed: Buffer | undefined;
+  try {
+    if (!isExactCompressedEnvelope(snapshot)) {
+      return decodeScalarParameterFromSnapshot(
+        snapshot,
+        false,
+        snapshot.byteLength,
+      );
+    }
+
+    const compressed = decodeFastSerializerCompressedBlock(snapshot);
+    uncompressed = compressed.data;
+    if (compressed.bytesConsumed !== snapshot.byteLength) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_COMPRESSION",
+        "fast-serializer compressed parameter has trailing bytes",
+        compressed.bytesConsumed,
+      );
+    }
+    return decodeScalarParameterFromSnapshot(
+      uncompressed,
+      true,
+      snapshot.byteLength,
+    );
+  } finally {
     snapshot.fill(0);
+    uncompressed?.fill(0);
   }
 }
 
@@ -1129,17 +1261,10 @@ export function encodeFastSerializerScalarParameter(
     value,
     "fast-serializer scalar value",
   );
-  if (valueSnapshot.byteLength > MAX_LITERAL_SCALAR_VALUE_LENGTH) {
-    valueSnapshot.fill(0);
-    throw new FastSerializerProtocolError(
-      "COMPRESSION_LIMIT_EXCEEDED",
-      "fast-serializer scalar value requires compression support",
-      0,
-    );
-  }
 
   let announcement: Buffer | undefined;
   let encodedValue: Buffer | undefined;
+  let literal: Buffer | undefined;
   try {
     announcement = encodeFastSerializerParameterAnnouncement({
       typeName,
@@ -1153,14 +1278,56 @@ export function encodeFastSerializerScalarParameter(
     const terminal = rule.terminalEnd
       ? Buffer.of(FastSerializerRecordTag.End)
       : Buffer.alloc(0);
-    return Buffer.concat([
+    literal = Buffer.concat([
       announcement.subarray(2),
       encodedValue,
       terminal,
     ]);
+    if (valueSnapshot.byteLength <= MAX_LITERAL_SCALAR_VALUE_LENGTH) {
+      return Buffer.from(literal);
+    }
+    return encodeFastSerializerCompressedBlock(literal);
   } finally {
     valueSnapshot.fill(0);
     announcement?.fill(0);
     encodedValue?.fill(0);
+    literal?.fill(0);
+  }
+}
+
+/** Decode one exact 0x5001 item carrying one elementary scalar parameter. */
+export function decodeFastSerializerScalarParameterItem(
+  input: Uint8Array,
+  offset = 0,
+  options: FastSerializerItemDecodeOptions = {},
+): FastSerializerScalarParameterItem {
+  const item = decodeFastSerializerItem(input, offset, options);
+  try {
+    if (item.id !== FAST_SERIALIZER_PARAMETER_ITEM_ID) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_ITEM",
+        "fast-serializer scalar parameter requires item identifier 0x5001",
+        item.offset,
+      );
+    }
+    return Object.freeze({
+      parameter: decodeFastSerializerScalarParameter(item.data),
+      offset: item.offset,
+      bytesConsumed: item.bytesConsumed,
+    });
+  } finally {
+    item.data.fill(0);
+  }
+}
+
+/** Encode one elementary scalar parameter in its exact self-closing 0x5001 item. */
+export function encodeFastSerializerScalarParameterItem(
+  parameter: FastSerializerScalarParameterInput,
+): Buffer {
+  const data = encodeFastSerializerScalarParameter(parameter);
+  try {
+    return encodeFastSerializerItem(FAST_SERIALIZER_PARAMETER_ITEM_ID, data);
+  } finally {
+    data.fill(0);
   }
 }
