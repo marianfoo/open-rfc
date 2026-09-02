@@ -712,6 +712,23 @@ test("execute and commit share one lease, metadata stays on the repository lane,
   assert.equal(owner.events.at(-1), "retire");
 });
 
+test("ping keeps the idle pinned conversation alive and follows LUW rollover", async () => {
+  const { owner, connection } = await openFixture();
+
+  assert.equal(await connection.ping(), true);
+  assert.equal(owner.events.includes("invoke:1:RFC_PING"), true);
+
+  await connection.commit();
+  assert.equal(await connection.ping(), true);
+  assert.deepEqual(
+    owner.events.filter((event) => event.startsWith("acquire:")),
+    ["acquire:1", "acquire:2"],
+  );
+  assert.equal(owner.events.includes("invoke:2:RFC_PING"), true);
+
+  await connection.close();
+});
+
 test("execute preserves grouped inputs, Promise results, and excluded output fields", async () => {
   let capturedInput: Readonly<Record<string, unknown>> | undefined;
   const { owner, connection } = await openFixture({
@@ -1590,6 +1607,10 @@ test("close racing a business call aborts once, waits for its tail, and never se
       );
       return true;
     },
+  );
+  await assert.rejects(
+    connection.ping(),
+    /concurrent|active|calling|operation/iu,
   );
 
   let closeSettled = false;

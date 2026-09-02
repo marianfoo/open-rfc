@@ -630,6 +630,26 @@ export class RFCConnection {
       : new Error("RFC connection is closed");
   }
 
+  /** Keep the idle pinned conversation alive with RFC_PING. */
+  async ping(): Promise<boolean> {
+    this.#requireOpen("ping");
+    const admission = this.#claimExecute();
+    try {
+      const ready = this.#readyCycle("ping");
+      const cycle = ready ?? await this.#ensureCycle("ping");
+      await this.#executeCycle(
+        cycle,
+        "RFC_PING",
+        Object.freeze({}),
+        Object.freeze([]),
+      );
+      return true;
+    } finally {
+      if (this.#activeExecute === admission) this.#activeExecute = undefined;
+      this.#finishSessionOperation(admission);
+    }
+  }
+
   async execute(
     functionName: string,
     input: RFCInputParams = {},

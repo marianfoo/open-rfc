@@ -56,6 +56,7 @@ contributors:
 - `src/protocol/logon-ticket.ts`
 - `src/protocol/cpic.ts`
 - `src/protocol/rfc-callback.ts`
+- `src/compat/node-rfc-library.ts`
 - `src/metadata/rfc-structure-definition.ts`
 - `src/values/classic-xrfc.ts`
 - `src/values/recursive-xrfc.ts`
@@ -76,6 +77,7 @@ specifically these upstream files:
 - `internal/metadata/structure_definition.go`
 - `internal/client/session.go`
 - `rfc/callback.go`
+- `rfc/session.go`
 - `internal/xrfc/classic_xrfc.go`
 - `internal/xrfc/recursive_xrfc_codec.go`
 

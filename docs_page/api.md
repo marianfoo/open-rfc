@@ -232,6 +232,7 @@ connection.execute(
   enableValidation = true,
   excludeParamsFromOutput = [],
 ): Promise<RfcObject>
+connection.ping(): Promise<boolean>
 connection.getMetadata(functionName): Promise<ModernRfcMetadata>
 connection.commit(): Promise<void>
 connection.rollback(): Promise<void>
@@ -255,6 +256,10 @@ for `Client` above.
 buckets. A parameter may appear in only one bucket. Validation is enabled by
 default. `excludeParamsFromOutput` marks those parameters not requested at SAP
 and omits them from the returned object.
+
+`ping()` sends `RFC_PING` over the same pinned conversation. Use it only while
+the connection is idle; it rejects while an `execute()` is active, because one
+RFC conversation carries only one call at a time.
 
 ### Transaction state rules
 
