@@ -763,6 +763,11 @@ export function decodeClassicXrfcBase64(
   path: string,
   maximum: number,
 ): Buffer {
+  // SAP's xRFC producer MIME-wraps larger XSTRING cells at 76 columns. Remove
+  // only the two MIME line separators before the existing canonical checks;
+  // spaces and every other non-base64 character remain invalid. Adapted from
+  // open-rfc-go internal/xrfc at 92d5d8f6e0a08ff7ac1580f461585cbde2a56939.
+  value = value.replace(/[\r\n]/gu, "");
   if (value.length === 0) return Buffer.alloc(0);
   if (
     (value.length & 3) !== 0 ||

@@ -55,9 +55,13 @@ contributors:
 - `src/protocol/fast-serializer.ts`
 - `src/protocol/logon-ticket.ts`
 - `src/protocol/cpic.ts`
+- `src/protocol/rfc-callback.ts`
+- `src/values/classic-xrfc.ts`
+- `src/values/recursive-xrfc.ts`
+- `src/values/recursive-classic-xrfc.ts`
 
-They use the bounded fast-serializer work in `open-rfc-go` at
-commit `92d5d8f6e0a08ff7ac1580f461585cbde2a56939` as their implementation basis,
+They use Apache-licensed interoperability work in `open-rfc-go` at commit
+`92d5d8f6e0a08ff7ac1580f461585cbde2a56939` as an implementation basis,
 specifically these upstream files:
 
 - `internal/fastser/lz4.go`
@@ -66,6 +70,12 @@ specifically these upstream files:
 - `internal/fastser/fields.go`
 - `internal/cpic/ticket.go`
 - `internal/cpic/logon.go`
+- `internal/rfcserver/request.go`
+- `internal/rfcserver/response.go`
+- `internal/client/session.go`
+- `rfc/callback.go`
+- `internal/xrfc/classic_xrfc.go`
+- `internal/xrfc/recursive_xrfc_codec.go`
 
 The pinned upstream project carries this notice:
 
@@ -101,6 +111,19 @@ percent escapes and non-Base64 text, imposes a fixed input bound, makes password
 and ticket credentials mutually exclusive in its types and runtime validation,
 clears temporary credential bytes, and keeps tickets out of inspected and JSON
 route plans. No upstream capture or ticket value is redistributed.
+
+The callback adaptation covers the upstream established-session CUT
+request/response grammar and same-conversation callback loop. The TypeScript
+API exposes raw owned values to synchronous handlers, bounds handlers and
+callbacks to 64 per outer call, returns `FU_NOT_FOUND` for unknown functions,
+strictly validates field order and framing, and retires the connection on
+malformed or uncertain state. The scripted callback fixtures were authored for
+this project from synthetic values; no upstream capture is redistributed.
+
+The xRFC adaptation accepts SAP's MIME-style Base64 line wrapping for XSTRING
+cells. The TypeScript decoders remove only CR and LF before canonical Base64
+validation, retain the existing decoded and aggregate byte limits, and continue
+to reject spaces and all other non-canonical text.
 
 The public repository and npm package include a copy of the Apache License,
 Version 2.0 in their root `LICENSE` file. Unless required by applicable law or

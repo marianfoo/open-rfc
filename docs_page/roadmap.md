@@ -314,7 +314,7 @@ Document which server, transactional, security, serializer, legacy-encoding, and
   - Stable unsupported-capability matrix
   - Fail-closed configuration review
 - **Acceptance criteria:**
-  - Server/callback mode, tRFC/qRFC/bgRFC, Throughput, security modes, serializers, and legacy encodings each have an explicit disposition.
+  - Registered server mode, client-side callback preview, tRFC/qRFC/bgRFC, Throughput, security modes, serializers, and legacy encodings each have an explicit disposition.
   - Conditional items not selected for 1.0 are documented as unsupported rather than silently omitted.
   - Version 1.0 does not claim unbounded SDK parity.
 
@@ -1226,4 +1226,4 @@ Publish through the established GitHub, npm, and Pages pipeline, verify exact by
 
 ## What 1.0 does not imply
 
-Version 1.0 will stabilize the reviewed support boundary; it will not imply complete SAP NW RFC SDK parity. Server/callback mode, tRFC, qRFC, bgRFC, Throughput, SNC/X.509, non-Unicode/MDMP, basXML, WebSocket RFC, Cloud Connector principal propagation, message-server routing, and SAProuter remain unsupported unless their conditional roadmap items are explicitly promoted and pass their complete acceptance evidence.
+Version 1.0 will stabilize the reviewed support boundary; it will not imply complete SAP NW RFC SDK parity. Registered server mode, tRFC, qRFC, bgRFC, Throughput, SNC/X.509, non-Unicode/MDMP, basXML, WebSocket RFC, Cloud Connector principal propagation, message-server routing, and SAProuter remain unsupported unless their conditional roadmap items are explicitly promoted and pass their complete acceptance evidence. The current raw client-side callback preview is not a registered-server implementation and must pass its own live acceptance evidence before becoming a stable claim.

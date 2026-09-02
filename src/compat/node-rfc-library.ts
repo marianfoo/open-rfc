@@ -62,6 +62,10 @@ import {
   createConnectivitySocks5DirectCpicTransportFactory,
 } from "../transport/connectivity-socks5-ni.js";
 import { NiTransportError } from "../transport/ni-socket.js";
+import {
+  snapshotRfcCallbackHandlers,
+  type RfcCallbackHandlers,
+} from "../protocol/rfc-callback.js";
 
 export interface RFCInputParams {
   readonly import?: RfcObject;
@@ -76,6 +80,8 @@ export interface RFCLogger {
 export interface RFCClientConfiguration {
   /** open-rfc extension: evidence-bound admission for recursive live sends. */
   readonly recursiveSerializerPolicy?: LiveRecursiveSerializerPolicy;
+  /** open-rfc preview: raw synchronous DESTINATION 'BACK' handlers by FM name. */
+  readonly callbacks?: RfcCallbackHandlers;
 }
 
 function snapshotRFCClientConfiguration(
@@ -84,25 +90,49 @@ function snapshotRFCClientConfiguration(
   if (input === undefined) return undefined;
   plainRecord(input, "RFCClient configuration");
   for (const key of Reflect.ownKeys(input)) {
-    if (key !== "recursiveSerializerPolicy") {
+    if (key !== "recursiveSerializerPolicy" && key !== "callbacks") {
       throw new TypeError("unknown RFCClient configuration property");
     }
   }
-  const descriptor = Object.getOwnPropertyDescriptor(
+  const recursiveDescriptor = Object.getOwnPropertyDescriptor(
     input,
     "recursiveSerializerPolicy",
   );
-  if (descriptor === undefined) return Object.freeze({});
-  if (!("value" in descriptor)) {
+  const callbacksDescriptor = Object.getOwnPropertyDescriptor(input, "callbacks");
+  if (
+    recursiveDescriptor !== undefined &&
+    !("value" in recursiveDescriptor)
+  ) {
     throw new TypeError(
       "RFCClient configuration recursiveSerializerPolicy must be an own data property",
     );
   }
-  if (descriptor.value === undefined) return Object.freeze({});
+  if (
+    callbacksDescriptor !== undefined &&
+    !("value" in callbacksDescriptor)
+  ) {
+    throw new TypeError(
+      "RFCClient configuration callbacks must be an own data property",
+    );
+  }
+  const recursiveSerializerPolicy = recursiveDescriptor?.value === undefined
+    ? undefined
+    : snapshotLiveRecursiveSerializerPolicy(
+        recursiveDescriptor.value as LiveRecursiveSerializerPolicy,
+      );
+  const callbacks = callbacksDescriptor?.value === undefined
+    ? undefined
+    : Object.freeze(Object.fromEntries(
+        snapshotRfcCallbackHandlers(
+          callbacksDescriptor.value as RfcCallbackHandlers,
+          "RFCClient configuration callbacks",
+        )!,
+      ));
   return Object.freeze({
-    recursiveSerializerPolicy: snapshotLiveRecursiveSerializerPolicy(
-      descriptor.value as LiveRecursiveSerializerPolicy,
-    ),
+    ...(recursiveSerializerPolicy === undefined
+      ? {}
+      : { recursiveSerializerPolicy }),
+    ...(callbacks === undefined ? {} : { callbacks }),
   });
 }
 
@@ -900,18 +930,24 @@ export class RFCClient {
     const capturedConfiguration = snapshotRFCClientConfiguration(configuration);
     const recursiveSerializerPolicy =
       capturedConfiguration?.recursiveSerializerPolicy;
+    const callbacks = capturedConfiguration?.callbacks;
     const ownerFactory: RFCClientDestinationOwnerFactory =
-      recursiveSerializerPolicy === undefined
+      recursiveSerializerPolicy === undefined && callbacks === undefined
         ? productionOwnerFactory
         : (connection, context) => createProductionOwner({
             connection,
             applicationPool: MODERN_APPLICATION_POOL,
             session: Object.freeze({
               ...(context?.session ?? {}),
-              recursiveSerializerDecisionProvider:
-                createLiveRecursiveSerializerDecisionProvider(
-                  recursiveSerializerPolicy,
-                ),
+              ...(callbacks === undefined ? {} : { callbacks }),
+              ...(recursiveSerializerPolicy === undefined
+                ? {}
+                : {
+                    recursiveSerializerDecisionProvider:
+                      createLiveRecursiveSerializerDecisionProvider(
+                        recursiveSerializerPolicy,
+                      ),
+                  }),
             }),
           });
     bindRFCClientDestinationOwnerFactory(this, ownerFactory);

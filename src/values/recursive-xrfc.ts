@@ -1534,6 +1534,7 @@ class Parser {
 }
 
 function canonicalBase64(value: string, path: string, maximum: number): Buffer {
+  value = normalizeXrfcBase64(value);
   canonicalBase64DecodedByteLength(value, path, maximum);
   if (value.length === 0) return Buffer.alloc(0);
   const decoded = Buffer.from(value, "base64");
@@ -1548,6 +1549,7 @@ function canonicalBase64DecodedByteLength(
   path: string,
   maximum: number,
 ): number {
+  value = normalizeXrfcBase64(value);
   if (
     value.length > maximum ||
     (value.length & 3) !== 0 ||
@@ -1557,6 +1559,14 @@ function canonicalBase64DecodedByteLength(
   }
   return (value.length / 4) * 3 -
     (value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0);
+}
+
+// SAP's xRFC producer MIME-wraps larger XSTRING cells at 76 columns. Adapted
+// from open-rfc-go internal/xrfc at
+// 92d5d8f6e0a08ff7ac1580f461585cbde2a56939. Keep the normalization narrow so
+// spaces and every other non-base64 character still fail canonical validation.
+function normalizeXrfcBase64(value: string): string {
+  return value.replace(/[\r\n]/gu, "");
 }
 
 function parseCanonicalBigInt(value: string, path: string): bigint {

@@ -13,6 +13,8 @@
 | `RFC_NO_AUTHORITY` | Authenticated but missing RFM/metadata authorization | Compare the exact `S_RFC` allowlist; do not grant a wildcard. |
 | Unknown RFM or missing metadata | Release/fixture mismatch or metadata denial | Verify the RFM is active and remote-enabled, then test metadata separately. |
 | Value/type rejection | Metadata or JavaScript representation | Compare casing, direction, length, decimals, and nested shape. |
+| Callback receives `FU_NOT_FOUND` | No exact handler name is configured | Match the ABAP callback RFM name exactly; do not add a catch-all handler. |
+| Callback closes the session | Unconfigured callback, malformed framing, asynchronous handler, or callback limit | Verify `clientOptions.callbacks`, keep handlers synchronous, and inspect only redacted structural diagnostics. |
 | Timeout/cancel after send | Ambiguous business outcome | Retire the connection and reconcile; never replay automatically. |
 
 ## Connection fails before logon

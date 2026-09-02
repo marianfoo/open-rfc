@@ -47,6 +47,17 @@ import {
   snapshotUint8Array,
 } from "../protocol/bytes.js";
 import {
+  DEFAULT_MAX_RFC_CALLBACKS_PER_CALL,
+  decodeCpicRfcCallbackRequest,
+  encodeCpicRfcCallbackException,
+  encodeCpicRfcCallbackResponse,
+  frameCpicRfcCallbackResponse,
+  isCpicRfcCallbackRequest,
+  snapshotRfcCallbackHandlers,
+  type RfcCallbackHandler,
+  type RfcCallbackHandlers,
+} from "../protocol/rfc-callback.js";
+import {
   RfcConnectionDisposition,
   RfcCoreError,
   RfcFailureCategory,
@@ -155,6 +166,8 @@ export interface DirectCpicSessionOptions {
    * Flat/classic calls do not require this policy.
    */
   readonly recursiveSerializerDecisionProvider?: RecursiveSerializerDecisionProvider;
+  /** Raw synchronous handlers for server-initiated DESTINATION 'BACK' calls. */
+  readonly callbacks?: RfcCallbackHandlers;
 }
 
 /**
@@ -661,6 +674,7 @@ function snapshotSessionOptions(
     cpicStreaming: options.cpicStreaming,
     recursiveSerializerDecisionProvider:
       options.recursiveSerializerDecisionProvider,
+    callbacks: options.callbacks,
   });
   validateSessionOptions(snapshot);
   return snapshot;
@@ -677,6 +691,7 @@ export class DirectCpicSession {
   readonly #cpicStreaming: "disabled" | "enabled";
   readonly #recursiveSerializerDecisionProvider:
     RecursiveSerializerDecisionProvider | undefined;
+  readonly #callbacks: ReadonlyMap<string, RfcCallbackHandler> | undefined;
   #conversationId: Buffer;
   #connectionIndex: number;
   #busy = false;
@@ -701,6 +716,7 @@ export class DirectCpicSession {
     cpicStreaming: "disabled" | "enabled",
     recursiveSerializerDecisionProvider:
       RecursiveSerializerDecisionProvider | undefined,
+    callbacks: ReadonlyMap<string, RfcCallbackHandler> | undefined,
   ) {
     this.#transport = transport;
     this.#localAddress = localAddress;
@@ -713,6 +729,7 @@ export class DirectCpicSession {
     this.#cpicStreaming = cpicStreaming;
     this.#recursiveSerializerDecisionProvider =
       recursiveSerializerDecisionProvider;
+    this.#callbacks = callbacks;
     this.info = Object.freeze({
       localAddress,
       peerCodePage: gateway.codePage,
@@ -724,6 +741,10 @@ export class DirectCpicSession {
 
   static async open(options: DirectCpicSessionOptions): Promise<DirectCpicSession> {
     const sessionOptions = snapshotSessionOptions(options);
+    const callbacks = snapshotRfcCallbackHandlers(
+      sessionOptions.callbacks,
+      "direct CPIC session callbacks",
+    );
     const cpicStreaming = sessionOptions.cpicStreaming ?? "disabled";
     if (cpicStreaming !== "disabled" && cpicStreaming !== "enabled") {
       throw new RangeError("cpicStreaming must be disabled or enabled");
@@ -922,6 +943,7 @@ export class DirectCpicSession {
         programName,
         cpicStreaming,
         sessionOptions.recursiveSerializerDecisionProvider,
+        callbacks,
       );
     } catch (error) {
       await transport.close().catch(() => undefined);
@@ -1315,6 +1337,7 @@ export class DirectCpicSession {
         recursiveMetadata,
       ),
       signal,
+      true,
     );
     const decoded = await this.#decodeRegularResponse(response);
     return this.#decodeApplicationResult(() =>
@@ -1412,7 +1435,7 @@ export class DirectCpicSession {
     } catch (cause) {
       throw new DirectCpicPreWireError(cause);
     }
-    const response = await this.exchange(request, signal);
+    const response = await this.exchange(request, signal, true);
     const decoded = await this.#decodeRegularResponse(response);
     return this.#decodeApplicationResult(() =>
       decodeOwnedClassicRfcInvocationResult(
@@ -1543,8 +1566,46 @@ export class DirectCpicSession {
     return definition;
   }
 
-  async exchange(data: Uint8Array, signal?: AbortSignal): Promise<Buffer> {
-    return this.#exchange(data, signal);
+  async exchange(
+    data: Uint8Array,
+    signal?: AbortSignal,
+    allowCallbacks = false,
+  ): Promise<Buffer> {
+    return this.#exchange(data, signal, undefined, allowCallbacks);
+  }
+
+  #planOutgoingRequest(data: Uint8Array): readonly AppcOutgoingDataFragment[] {
+    if (!(data instanceof Uint8Array)) {
+      throw new TypeError("RFC request data must be a Uint8Array");
+    }
+    const requestByteLength = intrinsicUint8ArrayByteLength(data);
+    if (
+      requestByteLength >
+        DEFAULT_MAX_APPC_OUTGOING_MESSAGE_LENGTH +
+          APPC_FINAL_SAP_PARAMETER_LENGTH
+    ) {
+      throw new RangeError(
+        "RFC request exceeds the direct CPIC request envelope",
+      );
+    }
+    const request = snapshotUint8Array(
+      data,
+      "RFC request data",
+      requestByteLength,
+    );
+    const framing = inspectCpicRequestAppcFraming(request);
+    return planOutgoingAppcDataFragments(
+      {
+        conversationId: this.#conversationId,
+        communicationIndex: 0xffff,
+        connectionIndex: this.#connectionIndex,
+        applicationData: request.subarray(0, framing.applicationDataLength),
+        finalSapParameters: framing.finalSapParameterLength === 0
+          ? undefined
+          : request.subarray(framing.applicationDataLength),
+      },
+      { cpicStreaming: this.#cpicStreaming },
+    );
   }
 
   #assertExchangeAvailable(owner?: symbol): void {
@@ -1570,42 +1631,13 @@ export class DirectCpicSession {
     data: Uint8Array,
     signal?: AbortSignal,
     owner?: symbol,
+    allowCallbacks = false,
   ): Promise<Buffer> {
     if (this.#closed) throw new Error("direct CPIC session is closed");
     this.#assertExchangeAvailable(owner);
     let outgoingPlan: readonly AppcOutgoingDataFragment[];
     try {
-      if (!(data instanceof Uint8Array)) {
-        throw new TypeError("RFC request data must be a Uint8Array");
-      }
-      const requestByteLength = intrinsicUint8ArrayByteLength(data);
-      if (
-        requestByteLength >
-          DEFAULT_MAX_APPC_OUTGOING_MESSAGE_LENGTH +
-            APPC_FINAL_SAP_PARAMETER_LENGTH
-      ) {
-        throw new RangeError(
-          "RFC request exceeds the direct CPIC request envelope",
-        );
-      }
-      const request = snapshotUint8Array(
-        data,
-        "RFC request data",
-        requestByteLength,
-      );
-      const framing = inspectCpicRequestAppcFraming(request);
-      outgoingPlan = planOutgoingAppcDataFragments(
-        {
-          conversationId: this.#conversationId,
-          communicationIndex: 0xffff,
-          connectionIndex: this.#connectionIndex,
-          applicationData: request.subarray(0, framing.applicationDataLength),
-          finalSapParameters: framing.finalSapParameterLength === 0
-            ? undefined
-            : request.subarray(framing.applicationDataLength),
-        },
-        { cpicStreaming: this.#cpicStreaming },
-      );
+      outgoingPlan = this.#planOutgoingRequest(data);
     } catch (cause) {
       throw new RfcCoreError(createRfcFailure({
         category: RfcFailureCategory.Serialization,
@@ -1636,6 +1668,7 @@ export class DirectCpicSession {
       transmission = RfcTransmissionState.Complete;
       phase = RfcOperationPhase.Receive;
       let decoder: AppcConversationDecoder | undefined;
+      let callbackCount = 0;
       for (;;) {
         const payload = await this.#transport.receive({
           timeoutMs: this.#operationTimeoutMs,
@@ -1672,6 +1705,53 @@ export class DirectCpicSession {
             // pre-send boundary above.
             this.#transport.assertNoQueuedFrames();
             this.#setup.responseComplete();
+          }
+          if (isCpicRfcCallbackRequest(message.data)) {
+            if (!allowCallbacks || this.#callbacks === undefined) {
+              throw new Error(
+                "server sent an RFC callback but no callback handlers are configured",
+              );
+            }
+            callbackCount += 1;
+            if (callbackCount > DEFAULT_MAX_RFC_CALLBACKS_PER_CALL) {
+              throw new Error(
+                `server exceeded ${DEFAULT_MAX_RFC_CALLBACKS_PER_CALL} RFC callbacks in one call`,
+              );
+            }
+            const callbackRequest = decodeCpicRfcCallbackRequest(message.data);
+            const handler = this.#callbacks.get(callbackRequest.functionName);
+            let callbackResponse: Buffer;
+            if (handler === undefined) {
+              callbackResponse = encodeCpicRfcCallbackException("FU_NOT_FOUND");
+            } else {
+              const response = Reflect.apply(handler, undefined, [
+                callbackRequest,
+                Object.freeze({ callbackIndex: callbackCount, signal }),
+              ]) as ReturnType<typeof handler>;
+              if (
+                typeof response === "object" &&
+                response !== null &&
+                "then" in response &&
+                typeof (response as { readonly then?: unknown }).then === "function"
+              ) {
+                throw new TypeError("RFC callback handlers must return synchronously");
+              }
+              callbackResponse = encodeCpicRfcCallbackResponse(response);
+            }
+            outgoingPlan = this.#planOutgoingRequest(
+              frameCpicRfcCallbackResponse(callbackResponse),
+            );
+            phase = RfcOperationPhase.Send;
+            await writeOutgoingAppcDataPlan(
+              this.#transport,
+              this.#setup,
+              outgoingPlan,
+              signal,
+              this.#operationTimeoutMs,
+            );
+            phase = RfcOperationPhase.Receive;
+            decoder = undefined;
+            continue;
           }
           return message.data;
         }

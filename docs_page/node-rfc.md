@@ -65,8 +65,10 @@ Before replacing an existing installation:
 2. Keep `Client` and `Pool` imports, but remove or redesign uses of `Server`,
    `Throughput`, `noderfc_binding`, `reloadIniFile`, SDK-global/INI
    configuration, SNC, SSO modes other than the documented MYSAPSSO2 preview,
-   X.509, registered server mode, callbacks from ABAP, tRFC, qRFC, and bgRFC.
-   They are not supplied by this beta.
+   X.509, registered server mode, tRFC, qRFC, and bgRFC. They are not supplied
+   by this beta. Client-side callbacks from ABAP are available only through the
+   raw, synchronous `clientOptions.callbacks` preview; they are not a drop-in
+   replacement for native callback handlers.
 3. Use only the supported direct application-server route; message-server and
    SAProuter code is an unsupported preview, not a migration target.
 4. Treat `call()` and the metadata methods as Promise-only, `invoke()` as the
@@ -315,6 +317,7 @@ If release fails, still attempt `closeAll()` and preserve both failures.
 |---|---|
 | `Client` / `Pool` | Promise and callback lifecycle, invoke/call, ping, cancellation, timeout, reset, and bounded pooling are part of the supported direct-route boundary. |
 | Values | Classic scalar, flat structure, structured table, STRING/XSTRING, exact decimal strings, and configurable INT8 output are supported within documented limits. Project tests exercise representative values; they do not cover every value on both selected SAP releases. |
+| RFC callbacks | Client-side `DESTINATION 'BACK'` is a raw synchronous preview, bounded to 64 callbacks per outer call and not yet live-qualified by this TypeScript implementation. Registered server mode remains unsupported. |
 | Unsupported options | Must fail before I/O; an option is never intentionally ignored merely to appear compatible. |
 | Native SDK globals | `Server`, `Throughput`, `noderfc_binding`, INI reload, and SDK-specific global configuration are not supplied. |
 

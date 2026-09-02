@@ -18,6 +18,10 @@ import type {
   ClassicRfcOutput,
 } from "../client/classic-invocation.js";
 import {
+  snapshotRfcCallbackHandlers,
+  type RfcCallbackHandlers,
+} from "../protocol/rfc-callback.js";
+import {
   RfcConnectionDisposition,
   RfcCoreError,
   RfcFailureCategory,
@@ -113,6 +117,7 @@ export interface DirectDestinationSessionOptions {
   readonly operationTimeoutMs?: number;
   readonly transportFactory?: DirectCpicTransportFactory;
   readonly recursiveSerializerDecisionProvider?: RecursiveSerializerDecisionProvider;
+  readonly callbacks?: RfcCallbackHandlers;
 }
 
 export interface DirectDestinationPoolOptions {
@@ -225,6 +230,7 @@ interface CanonicalSessionOptions {
   readonly operationTimeoutMs: number;
   readonly transportFactory?: DirectCpicTransportFactory;
   readonly recursiveSerializerDecisionProvider?: RecursiveSerializerDecisionProvider;
+  readonly callbacks?: RfcCallbackHandlers;
 }
 
 interface CanonicalPoolOptions {
@@ -549,6 +555,7 @@ function snapshotSessionOptions(
   const transportFactory = input?.transportFactory;
   const recursiveSerializerDecisionProvider =
     input?.recursiveSerializerDecisionProvider;
+  const callbacks = input?.callbacks;
   if (!/^[\x20-\x7e]{1,64}$/u.test(programName)) {
     throw new RangeError("session programName must contain 1..64 ASCII bytes");
   }
@@ -569,6 +576,15 @@ function snapshotSessionOptions(
       "session recursiveSerializerDecisionProvider must be a function",
     );
   }
+  // Validate and snapshot the table here; DirectCpicSession snapshots it again
+  // per generation so no caller-owned object survives an asynchronous open.
+  const callbackSnapshot = snapshotRfcCallbackHandlers(
+    callbacks,
+    "session callbacks",
+  );
+  const snapshottedCallbacks = callbackSnapshot === undefined
+    ? undefined
+    : Object.freeze(Object.fromEntries(callbackSnapshot));
   return Object.freeze({
     programName,
     ...(localAddress === undefined ? {} : { localAddress }),
@@ -583,6 +599,9 @@ function snapshotSessionOptions(
       : {
           recursiveSerializerDecisionProvider,
         }),
+    ...(snapshottedCallbacks === undefined
+      ? {}
+      : { callbacks: snapshottedCallbacks }),
   });
 }
 
@@ -689,6 +708,9 @@ function createProductionSessionFactory(
               recursiveSerializerDecisionProvider:
                 options.recursiveSerializerDecisionProvider,
             }),
+        ...(options.callbacks === undefined
+          ? {}
+          : { callbacks: options.callbacks }),
       }]) as DirectCpicSession;
       const logon = callable(session.logonAndPing, "session.logonAndPing");
       const close = callable(session.close, "session.close");

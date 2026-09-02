@@ -1574,6 +1574,11 @@ function preflightScalar(
       assertNulFreeUnicodeScalarText(value, path);
       return;
     case "y": {
+      // SAP's xRFC producer MIME-wraps larger XSTRING cells at 76 columns.
+      // Remove only MIME line separators before canonical preflight. Adapted
+      // from open-rfc-go internal/xrfc at
+      // 92d5d8f6e0a08ff7ac1580f461585cbde2a56939.
+      value = value.replace(/[\r\n]/gu, "");
       if (
         (value.length & 3) !== 0 ||
         !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)

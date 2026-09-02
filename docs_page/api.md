@@ -71,6 +71,7 @@ return them from a diagnostics endpoint.
 | `clientOptions.logLevel` | Accepted non-negative compatibility log level. |
 | `clientOptions.diagnostics` | Optional bounded structured diagnostic emitter. Never emit RFC inputs, outputs, or credentials from application wrappers. |
 | `clientOptions.recursiveSerializerPolicy` | Advanced open-rfc extension for recursive (nested table or structure) sends. Shape: `{ profile, observation: { defaultSerializer, basxmlDisabledSerializer } }`, where `profile` is `"abap-7.50"` or `"abap-7.58"`, `defaultSerializer` is `"classic-xrfc"`, `"basxml"` or `"unsupported"`, and `basxmlDisabledSerializer` is `"classic-xrfc"` or `"unsupported"`. General beta consumers must omit it unless the exact artifact's published support record supports the selected partner and value graph; omitted recursive sends fail closed. |
+| `clientOptions.callbacks` | Preview handlers for server-initiated `DESTINATION 'BACK'` calls, keyed by exact RFM name. A handler receives owned raw classic-RFC values plus `{ callbackIndex, signal }` and must synchronously return `{ exports?, tables? }`. Unknown callback RFMs receive `FU_NOT_FOUND`; malformed, unconfigured, asynchronous, or excessive callback activity fails closed. |
 
 `cancel()` signals active calls and resolves after signaling; await the original
 call promise or callback for its terminal outcome. A timeout or cancellation is
@@ -82,6 +83,26 @@ recursive serializer policy. Direct observation alone is not enough. Do not
 copy a policy from another SAP release, function, or value graph. Unless the
 exact release support record explicitly supports your
 graph, omit the option and keep the fail-closed result.
+
+Callback handlers execute while the outer call owns its physical session. Do
+not call the same client or await work from a handler. Interpret and construct
+raw parameter bytes using the callback RFM's exact ABAP metadata; this preview
+does not project callback values into normal JavaScript RFC objects. At most 64
+callbacks are serviced during one outer call. Callback request and response
+bytes must not be logged.
+
+```ts
+const client = new Client(connectionParameters, {
+  callbacks: {
+    STFC_CONNECTION(request) {
+      const input = request.imports.find(({ name }) => name === "REQUTEXT");
+      return input === undefined
+        ? {}
+        : { exports: [{ name: "ECHOTEXT", value: input.value }] };
+    },
+  },
+});
+```
 
 ## Connection parameters
 
@@ -226,8 +247,9 @@ supported way to abort and join active connection operations.
 `connectionInfo` returns an `Error` value after close and otherwise contains
 operationally sensitive route and user identity. The optional constructor
 logger has a `log(type, ...args)` method; open-rfc sends it only fixed lifecycle
-messages. The only current `RFCClient` configuration field is the same advanced
-`recursiveSerializerPolicy` described for `Client` above.
+messages. `RFCClient` configuration accepts the same advanced
+`recursiveSerializerPolicy` and raw synchronous `callbacks` preview described
+for `Client` above.
 
 `execute()` accepts direction-specific `import`, `changing`, and `table`
 buckets. A parameter may appear in only one bucket. Validation is enabled by
@@ -320,7 +342,7 @@ unless metadata says otherwise.
 | NUMC | Digit-only `string`; input is width-checked and left-zero-padded. |
 | DATE, TIME | Canonical digit strings; an initial ABAP value is `""`. |
 | STRING | `string`. |
-| BYTE, XSTRING | `Uint8Array` / `Buffer`. |
+| BYTE, XSTRING | `Uint8Array` / `Buffer`. Inbound xRFC XSTRING accepts canonical Base64 with SAP MIME-style CR/LF wrapping; spaces and other non-canonical text remain invalid. |
 | INT1, INT2, INT4 | `number`. |
 | INT8 | Modern API: `bigint`. Classic API: safe `number` by default, or explicit bigint/string mode. |
 | BCD/PACKED, DECF16/34 | Precision-preserving decimal `string` by default; classic callers may select number or a converter. |
