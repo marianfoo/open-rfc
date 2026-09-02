@@ -519,6 +519,37 @@ test("encodes the capture-sized semantic initial CPIC logon request", () => {
   assert.equal("value" in decoded.fields[7]!, false);
 });
 
+test("encodes a ticket credential in place of the password field", () => {
+  const encoded = encodeCpicInitialLogonRequest({
+    client: "001",
+    user: "RFCUSR",
+    ticket: "AjQxMDM=",
+    language: "E",
+    clientAddress: "127.0.0.1",
+    partnerHostName: "host.example.test",
+    destination: "127.0.0.1",
+    programName: "open-rfc01",
+    sessionId: Buffer.alloc(16, 0x5a),
+  });
+  const decoded = decodeCpicInitialLogonRequest(encoded);
+  assert.equal(decoded.fields[7]!.tag, CpicTag.Ticket);
+  assert.equal(decoded.fields[7]!.byteLength, 16);
+  assert.equal(
+    decoded.fields.some(({ tag }) => tag === CpicTag.Password),
+    false,
+  );
+
+  const chain = decodeCpicFieldChainPrefix(
+    encoded.subarray(18),
+    CpicTag.Start,
+    CpicTag.End,
+  ).fields;
+  assert.equal(
+    Buffer.from(chain[7]!.value).toString("utf16le"),
+    "AjQxMDM=",
+  );
+});
+
 test("rejects malformed initial logon fields and identity bounds", () => {
   const base = {
     client: "001",
@@ -539,6 +570,28 @@ test("rejects malformed initial logon fields and identity bounds", () => {
   assert.throws(
     () => encodeCpicInitialLogonRequest({ ...base, user: "ÜSER" }),
     /user.*ASCII/,
+  );
+  assert.throws(
+    () => encodeCpicInitialLogonRequest({
+      ...base,
+      ticket: "AjQxMDM=",
+    } as never),
+    /exactly one of password or ticket/u,
+  );
+  const noCredential = { ...base } as Record<string, unknown>;
+  delete noCredential.password;
+  assert.throws(
+    () => encodeCpicInitialLogonRequest(noCredential as never),
+    /exactly one of password or ticket/u,
+  );
+  const ticketWithPasswordSeed = {
+    ...base,
+    password: undefined,
+    ticket: "AjQxMDM=",
+  };
+  assert.throws(
+    () => encodeCpicInitialLogonRequest(ticketWithPasswordSeed as never),
+    /passwordSeed cannot be combined with ticket/u,
   );
   const brokenChain = encodeCpicInitialLogonRequest(base);
   brokenChain.writeUInt16BE(0x0104, 26);

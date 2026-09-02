@@ -11,6 +11,7 @@
 | `client` | `001` | One- to three-digit SAP client, normalized to three digits. |
 | `user` | injected secret | Named RFC principal. |
 | `passwd` | injected secret | Productive password for that principal. |
+| `mysapsso2` | injected secret | Preview alternative to `passwd`: a Base64 SAP logon ticket, optionally percent-escaped or using the cookie `/` to `!` substitution. |
 | `lang` | `EN` | Optional SAP or ISO language code. |
 
 ```js
@@ -24,6 +25,28 @@ const connectionParameters = {
 };
 ```
 
+The live-qualified beta path uses `passwd`. The implemented MYSAPSSO2 preview
+instead requires `user` and `mysapsso2` and rejects a connection that also
+supplies `passwd`:
+
+```js
+const ticketConnectionParameters = {
+  ashost: process.env.SAP_ASHOST,
+  sysnr: process.env.SAP_SYSNR ?? "00",
+  client: process.env.SAP_CLIENT,
+  user: process.env.SAP_USER,
+  mysapsso2: process.env.SAP_MYSAPSSO2,
+  lang: process.env.SAP_LANG ?? "EN",
+};
+```
+
+The target must trust the system that issued the ticket. A ticket is a bearer
+credential: keep it out of source, logs, diagnostics, and long-lived storage.
+Ticket logon is protocol- and socket-tested offline but has not yet been
+qualified against the two live beta systems.
+[SAP's RFC connection documentation](https://help.sap.com/saphelp_SCM700_ehp02/helpdata/de/48/b0ff6b792d356be10000000a421937/content.htm)
+likewise defines `mysapsso2` as an alternative to password authentication.
+
 Use `gwserv` or `port` only when the SAP gateway is not reachable at the
 derived `33NN` service. `gwhost` changes the TCP gateway endpoint while
 `ashost` remains the application-server identity used by CPIC. Do not confuse
@@ -35,9 +58,9 @@ and principal propagation, SNC, and X.509 remain outside the supported
 contract. See [Connection routes](routes.md).
 
 !!! danger "Classic RFC is not encrypted"
-    Password-authenticated classic RFC does not provide transport encryption
-    or peer authentication. Use it only on a trusted private network or inside
-    a separately managed protected tunnel.
+    Classic RFC does not provide transport encryption or peer authentication,
+    whether it carries a password or a logon ticket. Use it only on a trusted
+    private network or inside a separately managed protected tunnel.
 
 ## BTP Connectivity SOCKS5 preview
 
@@ -76,9 +99,10 @@ Configure the Cloud Connector side as follows:
    then restage it. Read `onpremise_proxy_host` and
    `onpremise_socks5_proxy_port` from that binding; never substitute
    `onpremise_proxy_rfc_port`.
-5. Keep `ashost`, `sysnr`, `client`, `user`, `passwd`, and `lang` set for the
-   actual SAP application-server identity and named-user logon. The TCP tunnel
-   changes the network route, not the RFC authentication model.
+5. Keep `ashost`, `sysnr`, `client`, `user`, and `lang` set for the actual SAP
+   application-server identity. Supply exactly one of `passwd` or the preview
+   `mysapsso2` credential. The TCP tunnel changes the network route, not the RFC
+   authentication model.
 
 The CF trust boundary is the connected subaccount and the identities permitted
 to obtain or consume Connectivity service-binding credentials. Cloud
@@ -87,7 +111,8 @@ separate production and non-production subaccounts/Cloud Connector
 configurations, restrict CF org/space roles and service-binding operations,
 and keep the mapping private to the smallest deployment scope available.
 
-This preview supports named-user authentication only. It rejects the separate
+This preview supports an explicit SAP user with either password authentication
+or the MYSAPSSO2 preview. It rejects the separate
 `connectivity_proxy_*` RFC-proxy route, principal propagation, SAProuter,
 message-server, and WebSocket. Cloud Connector cannot inspect a TCP mapping to
 apply an RFC resource allowlist, so the dedicated user's exact `S_RFC` role is
@@ -109,6 +134,8 @@ productive password and the smallest `S_RFC` allowlist needed by the
 application. System and Communication user classes are not part of the
 beta support contract. An SAP GUI login does not test RFC compatibility;
 validate the gateway, metadata, and application-RFM path through the connector.
+For the ticket preview, the same least-privilege and RFM authorization rules
+apply in addition to the target system's ticket-issuer trust configuration.
 
 Separate these capabilities when the deployment permits it:
 
@@ -174,8 +201,9 @@ that graph requires a serializer outside the current release boundary.
 
 ## Secrets and configuration ownership
 
-- Inject passwords from a platform secret or process environment; never put
-  them in `package.json`, source, a destination committed to Git, or logs.
+- Inject passwords and logon tickets from a platform secret or process
+  environment; never put them in `package.json`, source, a destination
+  committed to Git, or logs.
 - Keep separate configuration for development, test, and production.
 - Validate own data properties only. Avoid getters, merged untrusted objects,
   or both lowercase and uppercase aliases for the same field.

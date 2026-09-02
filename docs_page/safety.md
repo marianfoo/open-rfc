@@ -8,8 +8,9 @@
   provide transport encryption or peer authentication. A configured message
   server is also trusted to choose the backend. Never send credentials or RFC
   traffic across an untrusted network.
-- Load passwords from a secret manager or environment injection, never source
-  control.
+- Load passwords and logon tickets from a secret manager or environment
+  injection, never source control. A MYSAPSSO2 value is a bearer credential,
+  not harmless configuration.
 - Do not log request bodies, returned tables, raw frames, captures, destination
   credentials, or backend identity.
 - Use a dedicated least-privilege RFC user and network allowlist.

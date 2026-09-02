@@ -216,7 +216,7 @@ npm record identify the released source and package.
   are not supported by this release. Do not rely on those preview
   routes for its beta support contract; consult the status page shipped with a
   later exact version before assuming support changed.
-- BTP Connectivity SOCKS5/TCP routing for a direct named-user connection is an
+- BTP Connectivity SOCKS5/TCP routing for a direct explicit-user connection is an
   implemented preview. It requires the Connectivity binding's SOCKS5 endpoint,
   a Cloud Connector TCP mapping to the SAP gateway, and the explicit
   `connectivity_socks5_*` parameters documented on the site. It is not the
@@ -225,12 +225,17 @@ npm record identify the released source and package.
   subaccount-level trust boundary; its Trusted Applications allowlist is a
   Neo-only control. Restrict Connectivity service-binding access and enforce
   the function boundary with the SAP user's exact `S_RFC` role.
+- `mysapsso2` logon-ticket authentication is an implemented preview for the
+  classic direct and message-server paths. Supply `user` and `mysapsso2`, omit
+  `passwd`, and treat the ticket as a credential. The target system must trust
+  the ticket issuer. This path is protocol- and socket-tested offline but is not
+  part of the live-qualified beta support contract yet.
 - WebSocket RFC business calls, Cloud Connector principal propagation, SNC,
   and X.509 are not supported and fail closed before business I/O when their
   required provider or authentication capability is absent.
-- SNC/SSO/X.509, non-Unicode/MDMP partners, registered server mode, callbacks
-  from ABAP, Throughput, tRFC, qRFC, bgRFC, basXML, compression, and complete
-  NW RFC SDK parity are not supported.
+- SNC, other SSO mechanisms, X.509, non-Unicode/MDMP partners, registered server
+  mode, callbacks from ABAP, Throughput, tRFC, qRFC, bgRFC, basXML, compression,
+  and complete NW RFC SDK parity are not supported.
 
 The package summary is intentionally narrow: unknown or unavailable provider
 capabilities fail before business I/O rather than silently disappearing, while
@@ -344,9 +349,9 @@ provider does not advertise.
 - Direct RFC normally uses gateway port `33NN`, not SAP GUI dispatcher port
   `32NN`; `sysnr` accepts one or two digits and normalizes to two, while
   `client` is three digits.
-- A reachable peer can still reject logon because the user, client, password,
-  language, system license, or RFC metadata authorization is wrong. Do not log
-  the credential object while diagnosing it.
+- A reachable peer can still reject logon because the user, client, password or
+  ticket, language, system license, ticket trust, or RFC metadata authorization
+  is wrong. Do not log the credential object while diagnosing it.
 - Local value validation intentionally rejects silent truncation, out-of-range
   integers/decimals, unknown fields, wrong parameter directions, and unsupported
   recursive serializer choices before application bytes are sent.

@@ -28,10 +28,10 @@ or long soaks.
 ## What it does not claim
 
 The 0.x line has no production SLA. It is not a complete SAP NW RFC SDK
-replacement or a claim that every node-rfc or CAP topology works. SNC, SSO,
-X.509, server mode, tRFC, qRFC, bgRFC, non-Unicode partners, and several
-specialized transports remain unsupported until a later release explicitly
-includes them.
+replacement or a claim that every node-rfc or CAP topology works. SNC, SSO
+modes other than the documented MYSAPSSO2 preview, X.509, server mode, tRFC,
+qRFC, bgRFC, non-Unicode partners, and several specialized transports remain
+unsupported until a later release explicitly includes them.
 
 A source checkout or locally packed tarball is not automatically a published
 release. Use only an exact version whose GitHub Release, npm metadata, artifact

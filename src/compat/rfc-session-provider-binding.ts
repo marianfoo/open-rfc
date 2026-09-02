@@ -15,6 +15,7 @@ const PROVIDER_CAPABILITIES: ReadonlySet<ConnectionProviderCapability> =
     "message-server-saprouter-routing",
     "websocket-rfc-transport",
     "named-user-authentication",
+    "logon-ticket-authentication",
     "principal-propagation",
     "saprouter-routing",
     "connectivity-socks5-tcp",
@@ -81,7 +82,10 @@ function connectionInfoSnapshot(
     if (typeof key !== "string") {
       throw new TypeError("RFC session connectionInfo keys must be strings");
     }
-    if (/^(?:passwd|password|business_user_token|authorization)$/iu.test(key)) {
+    if (
+      /^(?:passwd|password|mysapsso2|ticket|business_user_token|authorization)$/iu
+        .test(key)
+    ) {
       throw new TypeError(`RFC session connectionInfo must not expose ${key}`);
     }
     if (key.length === 0 || Buffer.byteLength(key, "utf8") > 128) {

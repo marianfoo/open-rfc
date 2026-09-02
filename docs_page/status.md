@@ -58,6 +58,11 @@ Connector RFC proxy and principal propagation, SNC, and X.509 are not part of
 the current beta support contract. Their presence in source or offline tests
 does not make them supported.
 
+MYSAPSSO2 ticket authentication is also an implemented preview. The complete
+parameter-to-CPIC path is covered by offline and scripted-socket tests, but no
+disposable ticket was available for qualification on both documented live SAP
+systems. Password authentication therefore remains the current beta claim.
+
 ## Public source and license
 
 The source and npm package are distributed under Apache-2.0. The repository

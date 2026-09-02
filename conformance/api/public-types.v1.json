@@ -43,7 +43,7 @@
     "sha256": "3ced4556246b40fe4de22316ab1da7b6ae65ea0183a6a1d62e59fe08d293a041"
   },
   "subpathExportManifests": [],
-  "declarationCount": 68,
+  "declarationCount": 69,
   "declarations": [
     {
       "path": "dist/src/client/classic-invocation.d.ts",
@@ -52,8 +52,8 @@
     },
     {
       "path": "dist/src/client/direct-cpic-session.d.ts",
-      "bytes": 9496,
-      "sha256": "281a061c83b6df64e5e59f6a27a0073cd7292c87262e4fb419d8d89b31b6efa2"
+      "bytes": 9672,
+      "sha256": "c86ab8c611af66b2d3178c3384c9439da9f8616421ad283fe082a167de5e1525"
     },
     {
       "path": "dist/src/client/rfc-errors.d.ts",
@@ -72,13 +72,13 @@
     },
     {
       "path": "dist/src/compat/connection-parameters.d.ts",
-      "bytes": 2686,
-      "sha256": "345275d93de822fd008c440cd61e7f35b17ee4d67b901b05b5ea7a26c79c7037"
+      "bytes": 2930,
+      "sha256": "bff06441eb541144ff52b51975f4ccafbcc09fc9c48c1de2f533a70d6b092ad9"
     },
     {
       "path": "dist/src/compat/connection-route.d.ts",
-      "bytes": 4115,
-      "sha256": "235381b430beac2de6658784406d64cd8c318b7f56f4d1e3611742cff8fae2a2"
+      "bytes": 4324,
+      "sha256": "60bbf0dfd0bdf161133030c48c92f503f0937741b8ebce6ea23e4677fcf7c238"
     },
     {
       "path": "dist/src/compat/direct-owner-factory.d.ts",
@@ -132,8 +132,8 @@
     },
     {
       "path": "dist/src/compat/rfc-client-session-route.d.ts",
-      "bytes": 1870,
-      "sha256": "60f270749b104d8bd0717453c674a8cbb7b82a573964cae3d9cef07e9f0a8a83"
+      "bytes": 1857,
+      "sha256": "7da6c4ea0d6af0e85ba0696a29c0b0aab59160a5d6f689cd3e3a6199b9735a40"
     },
     {
       "path": "dist/src/compat/rfc-session-provider-binding.d.ts",
@@ -247,8 +247,8 @@
     },
     {
       "path": "dist/src/protocol/cpic.d.ts",
-      "bytes": 9932,
-      "sha256": "623b27b6f95213ff77ec866e01b417a2dd31afe0d9318736e47feddea45a96e0"
+      "bytes": 10219,
+      "sha256": "ff6e4e15188888229356bf642c601ab24fcf348753a44dff6f150a83fba4a0d9"
     },
     {
       "path": "dist/src/protocol/fast-serializer.d.ts",
@@ -259,6 +259,11 @@
       "path": "dist/src/protocol/gateway.d.ts",
       "bytes": 1416,
       "sha256": "8a6f70e286b7785f9306740815cc27c3057329eeb5d319ea56a2fd5bf5ef4479"
+    },
+    {
+      "path": "dist/src/protocol/logon-ticket.d.ts",
+      "bytes": 618,
+      "sha256": "471bfd666113c5999665e3c68c76c762b681137248f121528953bd82a85ef01e"
     },
     {
       "path": "dist/src/protocol/lz4-block.d.ts",
@@ -386,5 +391,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "1987e90918003b4b4e40f364b603fe34133f6a3af71ac395424f4b01f5ef644a"
+  "aggregateSha256": "b1e58fa9cd356f2b8921e68c47897a9719df6c364e6495413685ead75c2a074a"
 }

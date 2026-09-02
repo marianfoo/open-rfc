@@ -10,6 +10,7 @@ import {
 } from "../src/client/rfc-failure.js";
 import {
   CpicTag,
+  decodeCpicFieldChainPrefix,
   encodeCpicFieldChain,
   type CpicField,
 } from "../src/protocol/cpic.js";
@@ -90,6 +91,39 @@ async function coreFailure(promise: Promise<unknown>): Promise<RfcCoreError> {
   }
   assert.fail("expected an RfcCoreError");
 }
+
+test("sends a MYSAPSSO2 ticket through the allocated CPIC socket without a password", async (t) => {
+  let captured: readonly CpicField[] | undefined;
+  const peer = await ScriptedRfcPeer.start([{
+    inspectInitialLogon(request) {
+      captured = decodeCpicFieldChainPrefix(
+        request.subarray(18),
+        CpicTag.Start,
+        CpicTag.End,
+      ).fields;
+    },
+    replies: [{ kind: "fields", fields: successfulRegularFields() }],
+  }]);
+  t.after(() => peer.close());
+  const session = await allocatedSession(peer);
+
+  await session.logonAndPing({
+    client: "001",
+    user: "RFCUSR",
+    ticket: "AjQxMDM=",
+  });
+
+  const fields = captured;
+  assert.ok(fields);
+  assert.equal(fields.some((field) => field.tag === CpicTag.Password), false);
+  assert.equal(
+    Buffer.from(
+      fields.find((field) => field.tag === CpicTag.Ticket)?.value ?? [],
+    ).toString("hex"),
+    Buffer.from("AjQxMDM=", "utf16le").toString("hex"),
+  );
+  await session.close();
+});
 
 test("rejects a gateway that does not select little-endian Unicode code page 4103", async (t) => {
   const cases = [

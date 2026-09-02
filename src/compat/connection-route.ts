@@ -1,6 +1,7 @@
 import { types as nodeUtilTypes } from "node:util";
 
 import { assertSapRouterRoutePrefix } from "../transport/saprouter-route.js";
+import { normalizeRfcLogonTicket } from "../protocol/logon-ticket.js";
 
 import {
   normalizeDirectRouteConnectionParameters,
@@ -16,6 +17,7 @@ export type ConnectionProviderCapability =
   | "message-server-saprouter-routing"
   | "websocket-rfc-transport"
   | "named-user-authentication"
+  | "logon-ticket-authentication"
   | "principal-propagation"
   | "saprouter-routing"
   | "connectivity-socks5-tcp"
@@ -62,8 +64,15 @@ export interface PrincipalPropagationAuthenticationPlan {
   readonly businessUserToken: string;
 }
 
+export interface LogonTicketAuthenticationPlan {
+  readonly kind: "logon-ticket";
+  readonly user: string;
+  readonly ticket: string;
+}
+
 export type ConnectionAuthenticationPlan =
   | NamedUserAuthenticationPlan
+  | LogonTicketAuthenticationPlan
   | PrincipalPropagationAuthenticationPlan;
 
 export interface SapRouterPlan {
@@ -103,7 +112,7 @@ export interface ConnectionRoutePlan {
 }
 
 /**
- * Project one already-admitted direct/named-user plan into the immutable
+ * Project one already-admitted direct explicit-user plan into the immutable
  * connection shape owned by the classic session layer. Route adapters use
  * this instead of re-reading or narrowing the caller's parameter object.
  */
@@ -113,9 +122,9 @@ export function normalizedDirectConnectionFromPlan(
   if (plan.route.kind !== "direct") {
     throw new TypeError("normalized direct connection requires a direct route");
   }
-  if (plan.authentication.kind !== "named-user") {
+  if (plan.authentication.kind === "principal-propagation") {
     throw new TypeError(
-      "normalized direct connection requires named-user authentication",
+      "normalized direct connection requires user authentication",
     );
   }
   return Object.freeze({
@@ -125,7 +134,9 @@ export function normalizedDirectConnectionFromPlan(
     applicationServerService: plan.route.applicationServerService,
     client: plan.logon.client,
     user: plan.authentication.user,
-    password: plan.authentication.password,
+    ...(plan.authentication.kind === "logon-ticket"
+      ? { ticket: plan.authentication.ticket }
+      : { password: plan.authentication.password }),
     language: plan.logon.language,
     sysnr: plan.route.sysnr,
     cpicStreaming: plan.route.cpicStreaming,
@@ -153,6 +164,7 @@ const CONNECTION_PARAMETER_NAMES = Object.freeze([
   "client",
   "user",
   "passwd",
+  "mysapsso2",
   "lang",
   "cpic_streaming",
   "mshost",
@@ -432,8 +444,11 @@ function planAuthentication(input: ConnectionParameterSnapshot): {
   const token = textParameter(input, "business_user_token", false);
   const hasUser = hasValue(input, "user");
   const hasPassword = hasValue(input, "passwd");
-  if (token !== undefined && (hasUser || hasPassword)) {
-    throw new TypeError("business_user_token cannot be combined with user or passwd");
+  const hasTicket = hasValue(input, "mysapsso2");
+  if (token !== undefined && (hasUser || hasPassword || hasTicket)) {
+    throw new TypeError(
+      "business_user_token cannot be combined with user, passwd, or mysapsso2",
+    );
   }
   if (token !== undefined) {
     return Object.freeze({
@@ -447,13 +462,31 @@ function planAuthentication(input: ConnectionParameterSnapshot): {
       capability: "principal-propagation" as const,
     });
   }
-  if (hasUser !== hasPassword) {
+  if (hasPassword && hasTicket) {
+    throw new TypeError("passwd and mysapsso2 cannot be combined");
+  }
+  if (!hasTicket && (hasUser !== hasPassword || !hasUser)) {
     throw new TypeError("user and passwd must be supplied together");
   }
-  if (!hasUser) {
-    throw new TypeError("user and passwd must be supplied together");
+  if (hasTicket && !hasUser) {
+    throw new TypeError("user and mysapsso2 must be supplied together");
   }
   const user = textParameter(input, "user", true)!;
+  if (hasTicket) {
+    const ticket = normalizeRfcLogonTicket(input.mysapsso2 as string);
+    return Object.freeze({
+      authentication: freezeSecretNode({
+        kind: "logon-ticket" as const,
+        user,
+        ticket,
+      }, {
+        kind: "logon-ticket",
+        user: REDACTED,
+        ticket: REDACTED,
+      }),
+      capability: "logon-ticket-authentication" as const,
+    });
+  }
   const password = textParameter(input, "passwd", true)!;
   return Object.freeze({
     authentication: freezeSecretNode({
@@ -636,9 +669,9 @@ export function planConnectionRoute(
         "Connectivity SOCKS5 is supported only for a direct ashost route",
       );
     }
-    if (authentication.authentication.kind !== "named-user") {
+    if (authentication.authentication.kind === "principal-propagation") {
       throw new TypeError(
-        "Connectivity SOCKS5 requires named-user authentication",
+        "Connectivity SOCKS5 requires user authentication",
       );
     }
     if (routeString !== undefined) {

@@ -46,6 +46,19 @@ function plan() {
   });
 }
 
+function ticketPlan() {
+  return planConnectionRoute({
+    mshost: "message.example.test",
+    msserv: "sapmsQAS",
+    r3name: "QAS",
+    group: "PUBLIC",
+    client: "001",
+    user: "MESSAGE_USER",
+    mysapsso2: "AjQxMDM=",
+    lang: "EN",
+  });
+}
+
 function selectedSession(
   result: DirectDestinationSessionOpenResult,
 ): { readonly session: DirectCpicSession; readonly selectedConnection: object } {
@@ -125,6 +138,42 @@ test("resolves every physical creation independently with bounded pre-call failo
   assert.equal(directConnections.length, 3);
 });
 
+test("projects a ticket through message-server selection without a password", async () => {
+  const physical = Object.freeze({}) as DirectCpicSession;
+  let selectedConnection: object | undefined;
+  const factory = createMessageServerDirectSessionFactory({
+    plan: ticketPlan(),
+    directSessionFactory: {
+      async open(connection) {
+        selectedConnection = connection;
+        return physical;
+      },
+    },
+    async resolveGroup() { return TARGET_00; },
+  });
+
+  const ownerConnection = messageServerOwnerConnection(ticketPlan());
+  assert.equal("password" in ownerConnection, false);
+  assert.equal(ownerConnection.ticket, "AjQxMDM=");
+  await factory.open(ownerConnection, {
+    lane: "application",
+    signal: new AbortController().signal,
+  });
+
+  assert.deepEqual(selectedConnection, {
+    host: "app-00.example.test",
+    applicationServerHost: "app-00.example.test",
+    port: 3300,
+    applicationServerService: "sapdp00",
+    client: "001",
+    user: "MESSAGE_USER",
+    ticket: "AjQxMDM=",
+    language: "E",
+    sysnr: "00",
+    cpicStreaming: "disabled",
+  });
+});
+
 test("does not retry malformed lookup results or authentication-like failures", async () => {
   for (const failure of [
     new NiTransportError("NI_PROTOCOL_ERROR", "synthetic malformed lookup"),
@@ -202,7 +251,7 @@ test("rejects invalid factory plans and dependencies before lookup or direct ope
   );
   assert.throws(
     () => createMessageServerDirectSessionFactory({ plan: propagated }),
-    /requires named-user authentication/u,
+    /requires user authentication/u,
   );
   assert.throws(
     () => createMessageServerDirectSessionFactory({
@@ -237,7 +286,7 @@ test("rejects invalid factory plans and dependencies before lookup or direct ope
   );
   assert.throws(
     () => messageServerOwnerConnection(propagated),
-    /owner connection requires named-user authentication/u,
+    /owner connection requires user authentication/u,
   );
 });
 

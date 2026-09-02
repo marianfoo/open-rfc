@@ -460,7 +460,16 @@ function snapshotConnection(
   );
   const client = nonEmptyText(input.client, "connection.client");
   const user = nonEmptyText(input.user, "connection.user");
-  const password = nonEmptyText(input.password, "connection.password");
+  const rawPassword = input.password;
+  const rawTicket = input.ticket;
+  if ((rawPassword === undefined) === (rawTicket === undefined)) {
+    throw new TypeError(
+      "connection requires exactly one of password or ticket",
+    );
+  }
+  const credential = rawTicket === undefined
+    ? { password: nonEmptyText(rawPassword, "connection.password") }
+    : { ticket: nonEmptyText(rawTicket, "connection.ticket") };
   const language = nonEmptyText(input.language, "connection.language");
   const sysnr = nonEmptyText(input.sysnr, "connection.sysnr");
   const cpicStreaming = input.cpicStreaming;
@@ -491,7 +500,7 @@ function snapshotConnection(
     applicationServerService,
     client,
     user,
-    password,
+    ...credential,
     language,
     sysnr,
     cpicStreaming,
@@ -687,7 +696,9 @@ function createProductionSessionFactory(
         await safeApply(logon, session, [{
           client: connection.client,
           user: connection.user,
-          password: connection.password,
+          ...(connection.ticket === undefined
+            ? { password: connection.password }
+            : { ticket: connection.ticket }),
           language: connection.language,
         }, context.signal]);
         return session;

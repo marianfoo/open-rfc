@@ -9,7 +9,7 @@
 | DNS lookup failure | Network configuration | Resolve the configured host from the application runtime; do not print credentials. |
 | Connection refused | Wrong gateway port or listener down | Confirm `33NN` or the explicit `gwserv`/`port`, not the SAP GUI `32NN` dispatcher port. |
 | Connect timeout | Firewall, route, or unreachable gateway | Check the trusted network path and finite connect/lifecycle bounds. |
-| `RFC_LOGON_FAILURE` | Client, password, user state, or logon policy | Test a non-exempt read-only RFM with the intended technical principal. |
+| `RFC_LOGON_FAILURE` | Client, password or ticket, user state, ticket trust, or logon policy | Test a non-exempt read-only RFM with the intended technical principal. |
 | `RFC_NO_AUTHORITY` | Authenticated but missing RFM/metadata authorization | Compare the exact `S_RFC` allowlist; do not grant a wildcard. |
 | Unknown RFM or missing metadata | Release/fixture mismatch or metadata denial | Verify the RFM is active and remote-enabled, then test metadata separately. |
 | Value/type rejection | Metadata or JavaScript representation | Compare casing, direction, length, decimals, and nested shape. |
@@ -19,12 +19,13 @@
 
 - Verify DNS, gateway host and port, system number, and network route.
 - Check whether the configuration selects the supported direct route.
-- Do not remove intended SNC, SSO, X.509, message-server, SAProuter, WebSocket,
-  or Connectivity properties merely to force a connection. Select a supported
-  connector and topology instead. SNC, SSO, X.509, WebSocket business calls,
-  and Connectivity principal propagation fail when the required capability is
-  unavailable. Message-server and SAProuter previews may attempt network I/O,
-  but remain outside this release's beta support.
+- Do not remove intended SNC, unsupported SSO, X.509, message-server,
+  SAProuter, WebSocket, or Connectivity properties merely to force a
+  connection. Select a supported connector and topology instead. SNC, SSO
+  modes other than the documented MYSAPSSO2 preview, X.509, WebSocket business
+  calls, and Connectivity principal propagation fail when the required
+  capability is unavailable. Message-server and SAProuter previews may attempt
+  network I/O, but remain outside this release's beta support.
 
 For the Connectivity SOCKS5 preview, confirm that the binding value is
 `onpremise_socks5_proxy_port`, the token has no `Bearer ` prefix, and `gwhost` /
@@ -40,7 +41,8 @@ The SAP GUI dispatcher commonly uses `32NN` and is not interchangeable.
 
 ## Logon fails
 
-- Check client, user, password injection, and one- or two-letter language.
+- Check client, user, password or ticket injection, ticket-issuer trust when
+  applicable, and one- or two-letter language.
 - Verify the target identity privately before the first application call.
 - Do not print credentials or the full backend response.
 

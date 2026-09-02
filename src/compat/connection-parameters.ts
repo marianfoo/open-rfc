@@ -1,6 +1,8 @@
+import { normalizeRfcLogonTicket } from "../protocol/logon-ticket.js";
+
 export type RfcConnectionParameters = Readonly<Record<string, unknown>>;
 
-export interface NormalizedDirectConnection {
+interface NormalizedDirectConnectionBase {
   /** TCP endpoint used for the SAP gateway connection. */
   readonly host: string;
   /** Application server name carried inside the CPIC logon request. */
@@ -8,16 +10,29 @@ export interface NormalizedDirectConnection {
   readonly port: number;
   readonly applicationServerService: string;
   readonly client: string;
-  readonly user: string;
-  readonly password: string;
   readonly language: string;
   readonly sysnr: string;
   readonly cpicStreaming: "disabled" | "enabled";
 }
 
+export type NormalizedDirectConnection = Readonly<
+  NormalizedDirectConnectionBase & (
+    | {
+      readonly user: string;
+      readonly password: string;
+      readonly ticket?: never;
+    }
+    | {
+      readonly user: string;
+      readonly ticket: string;
+      readonly password?: never;
+    }
+  )
+>;
+
 /** Direct route and logon fields which do not select an authentication mode. */
 export type NormalizedDirectRouteConnection = Readonly<
-  Omit<NormalizedDirectConnection, "user" | "password">
+  NormalizedDirectConnectionBase
 >;
 
 /** Common RFC logon fields shared by every client route. */
@@ -42,6 +57,7 @@ const RECOGNIZED_DIRECT_PARAMETER_NAMES = Object.freeze([
   "client",
   "user",
   "passwd",
+  "mysapsso2",
   "lang",
   "cpic_streaming",
   "mshost",
@@ -67,6 +83,7 @@ const RECOGNIZED_DIRECT_PARAMETER_NAMES = Object.freeze([
 
 const HIDDEN_DIRECT_PARAMETER_NAMES = new Set([
   "passwd",
+  "mysapsso2",
   "business_user_token",
   "connectivity_proxy_authentication",
   "connectivity_location_id",
@@ -338,7 +355,8 @@ function normalizeDirectConnectionParameterSnapshot(
 ): NormalizedDirectConnection {
   // Keep the legacy direct validation and evaluation order stable. The
   // authentication-neutral route helper above intentionally has a separate
-  // construction path because principal propagation has no user/passwd.
+  // construction path because principal propagation has no explicit user
+  // credential.
   rejectUnsupportedDirectParameters(input);
   const ashost = textParameter(input, "ashost", true)!;
   if (!/^[\x20-\x7e]{1,64}$/u.test(ashost)) {
@@ -349,14 +367,27 @@ function normalizeDirectConnectionParameterSnapshot(
   const gwhost = textParameter(input, "gwhost", false);
   const sysnr = systemNumber(input);
   const language = textParameter(input, "lang", false) ?? "E";
+  const port = gatewayPort(input, sysnr);
+  const client = clientNumber(input);
+  const user = textParameter(input, "user", true)!;
+  const password = textParameter(input, "passwd", false);
+  const rawTicket = parameter(input, "mysapsso2");
+  const ticket = rawTicket === undefined
+    ? undefined
+    : normalizeRfcLogonTicket(rawTicket as string);
+  if ((password === undefined) === (ticket === undefined)) {
+    throw new TypeError("exactly one of passwd or mysapsso2 must be supplied");
+  }
   return Object.freeze({
     host: gwhost ?? ashost,
     applicationServerHost: ashost,
-    port: gatewayPort(input, sysnr),
+    port,
     applicationServerService: `sapdp${sysnr}`,
-    client: clientNumber(input),
-    user: textParameter(input, "user", true)!,
-    password: textParameter(input, "passwd", true)!,
+    client,
+    user,
+    ...(ticket === undefined
+      ? { password: password! }
+      : { ticket }),
     language: normalizeDirectConnectionLanguage(language),
     sysnr,
     cpicStreaming: cpicStreamingPolicy(input),
@@ -389,7 +420,8 @@ export function normalizeDirectConnectionParameters(
 /**
  * Normalize direct endpoint and common logon fields without choosing an
  * authentication provider. Advanced route planners use this for principal
- * propagation while the public direct API continues to require user/passwd.
+ * propagation while the public direct API selects either password or ticket
+ * authentication alongside an explicit user.
  */
 export function normalizeDirectRouteConnectionParameters(
   input: RfcConnectionParameters,
