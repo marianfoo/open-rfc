@@ -661,20 +661,6 @@ const INITIAL_CPIC_ERROR_RESPONSE_PREFIX = Buffer.from(
   "010100080101010101010000",
   "hex",
 );
-const INITIAL_CPIC_ERROR_PREAMBLE_TAGS = Object.freeze([
-  CpicTag.ProtocolVersion,
-  CpicTag.Capabilities,
-  CpicTag.SystemCodePage,
-  CpicTag.ClientAddress,
-  CpicTag.PartnerSystem,
-  CpicTag.PartnerHost,
-  CpicTag.ConnectionType,
-  CpicTag.KernelPatch,
-  CpicTag.KernelRelease,
-  CpicTag.Destination,
-  CpicTag.Program,
-  CpicTag.ResponseStart,
-]);
 const INITIAL_CPIC_REGULAR_RESPONSE_TAGS = new Set<number>([
   CpicTag.Start,
   CpicTag.ProtocolVersion,
@@ -686,16 +672,17 @@ const INITIAL_CPIC_REGULAR_RESPONSE_TAGS = new Set<number>([
   CpicTag.End,
 ]);
 /**
- * One coordinate of the initial RFCPING composite grammar.
+ * One coordinate of an initial logon-response grammar.
  *
- * `byteLength` pins a control coordinate to its exact width. `maxByteLength`
- * bounds a coordinate that carries a name or address and therefore varies with
- * the endpoint rather than with the protocol. A coordinate must declare exactly
- * one of the two.
+ * `byteLength` pins a control coordinate to one exact width; `byteLengths`
+ * admits a small per-coordinate release/encoding set. `maxByteLength` bounds a
+ * coordinate that carries a name or address and therefore varies with the
+ * endpoint rather than with the protocol. A coordinate declares one form.
  */
 interface InitialCpicGrammarCoordinate {
   readonly tag: number;
   readonly byteLength?: number;
+  readonly byteLengths?: readonly number[];
   readonly maxByteLength?: number;
   readonly optional?: true;
 }
@@ -709,6 +696,47 @@ interface InitialCpicGrammarCoordinate {
  * malformed response, and reported successful logons as RFC_INVALID_PROTOCOL.
  */
 const INITIAL_CPIC_MAX_TEXT_COORDINATE_BYTE_LENGTH = 255;
+
+/**
+ * The terminal logon-error preamble. NetWeaver may include a one-byte status
+ * and three additional bounded controls around the same stable identity
+ * fields, while older error replies omit them. Text coordinates vary with
+ * endpoint configuration; allowed control widths and order remain explicit.
+ */
+const INITIAL_CPIC_ERROR_PREAMBLE_GRAMMAR:
+  readonly InitialCpicGrammarCoordinate[] = Object.freeze([
+    { tag: CpicTag.ProtocolVersion, byteLength: 4 },
+    { tag: CpicTag.Capabilities, byteLength: 11 },
+    { tag: CpicTag.LogonStatus, byteLength: 1, optional: true },
+    { tag: CpicTag.SystemCodePage, byteLengths: [4, 8] },
+    { tag: INITIAL_CPIC_UNRESOLVED_0450, byteLength: 3, optional: true },
+    {
+      tag: CpicTag.ClientAddress,
+      maxByteLength: INITIAL_CPIC_MAX_TEXT_COORDINATE_BYTE_LENGTH,
+    },
+    { tag: 0x0020, byteLength: 46, optional: true },
+    { tag: 0x0021, byteLength: 10, optional: true },
+    {
+      tag: CpicTag.PartnerSystem,
+      maxByteLength: INITIAL_CPIC_MAX_TEXT_COORDINATE_BYTE_LENGTH,
+    },
+    {
+      tag: CpicTag.PartnerHost,
+      maxByteLength: INITIAL_CPIC_MAX_TEXT_COORDINATE_BYTE_LENGTH,
+    },
+    { tag: CpicTag.ConnectionType, byteLengths: [1, 2] },
+    { tag: CpicTag.KernelPatch, byteLengths: [4, 8] },
+    { tag: CpicTag.KernelRelease, byteLengths: [4, 8] },
+    {
+      tag: CpicTag.Destination,
+      maxByteLength: INITIAL_CPIC_MAX_TEXT_COORDINATE_BYTE_LENGTH,
+    },
+    {
+      tag: CpicTag.Program,
+      maxByteLength: INITIAL_CPIC_MAX_TEXT_COORDINATE_BYTE_LENGTH,
+    },
+    { tag: CpicTag.ResponseStart, byteLength: 0 },
+  ]);
 
 /**
  * The logon/session preamble. Order is exact and every tag must be listed;
@@ -806,6 +834,11 @@ interface InitialCpicGrammarMatch {
   readonly embeddedAllowedTags: readonly number[];
 }
 
+interface InitialCpicErrorPreambleMatch {
+  readonly fieldCount: number;
+  readonly allowedTags: readonly number[];
+}
+
 function matchesInitialCpicGrammarCoordinate(
   field: DecodedCpicField,
   coordinate: InitialCpicGrammarCoordinate,
@@ -814,8 +847,35 @@ function matchesInitialCpicGrammarCoordinate(
   if (coordinate.byteLength !== undefined) {
     return field.value.byteLength === coordinate.byteLength;
   }
+  if (coordinate.byteLengths !== undefined) {
+    return coordinate.byteLengths.includes(field.value.byteLength);
+  }
   return field.value.byteLength >= 1 &&
     field.value.byteLength <= coordinate.maxByteLength!;
+}
+
+function matchInitialCpicErrorPreamble(
+  fields: readonly DecodedCpicField[],
+): InitialCpicErrorPreambleMatch | null {
+  let fieldIndex = 0;
+  const allowedTags: number[] = [];
+  for (const coordinate of INITIAL_CPIC_ERROR_PREAMBLE_GRAMMAR) {
+    const field = fields[fieldIndex];
+    if (
+      field !== undefined &&
+      matchesInitialCpicGrammarCoordinate(field, coordinate)
+    ) {
+      allowedTags.push(coordinate.tag);
+      fieldIndex += 1;
+      continue;
+    }
+    if (coordinate.optional === true) continue;
+    return null;
+  }
+  return Object.freeze({
+    fieldCount: fieldIndex,
+    allowedTags: Object.freeze(allowedTags),
+  });
 }
 
 /**
@@ -1245,20 +1305,17 @@ export function decodeCpicInitialLogonResponse(
     byteLength: field.value.byteLength,
   }));
   if (isErrorResponse) {
+    const preamble = matchInitialCpicErrorPreamble(decoded.fields);
     if (
-      decoded.fields.length <= INITIAL_CPIC_ERROR_PREAMBLE_TAGS.length + 1 ||
-      INITIAL_CPIC_ERROR_PREAMBLE_TAGS.some((tag, index) =>
-        decoded.fields[index]?.tag !== tag
-      ) ||
-      decoded.fields[INITIAL_CPIC_ERROR_PREAMBLE_TAGS.length - 1]!.value
-        .byteLength !== 0
+      preamble === null ||
+      decoded.fields.length <= preamble.fieldCount + 1
     ) {
       failInitialCpicLogonParse(
         "error-preamble",
         "initial CPIC logon error response has an invalid preamble",
       );
     }
-    for (const tag of INITIAL_CPIC_ERROR_PREAMBLE_TAGS) {
+    for (const tag of preamble.allowedTags) {
       if (decoded.fields.filter((field) => field.tag === tag).length !== 1) {
         failInitialCpicLogonParse(
           "error-preamble",
@@ -1269,7 +1326,7 @@ export function decodeCpicInitialLogonResponse(
     let envelope: RfcErrorEnvelope;
     try {
       envelope = decodeRfcErrorEnvelope(decoded.fields, {
-        additionalAllowedTags: INITIAL_CPIC_ERROR_PREAMBLE_TAGS,
+        additionalAllowedTags: preamble.allowedTags,
       });
     } catch (error) {
       registerInitialCpicLogonParseStage("error-envelope", error);

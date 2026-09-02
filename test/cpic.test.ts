@@ -1474,7 +1474,7 @@ test("rejects contradictory and non-canonical regular initial logon envelopes", 
   }
 });
 
-test("classifies the NetWeaver 7.50 terminal logon-error envelope without a numeric status", () => {
+test("classifies the rich NetWeaver 7.50 terminal logon-error envelope", () => {
   // Payload text is synthetic and only the prefix plus structural preamble/tag
   // geometry of a NetWeaver 7.50 rejected logon is reproduced; no credential,
   // backend identity, address, or application value is retained here.
@@ -1482,19 +1482,23 @@ test("classifies the NetWeaver 7.50 terminal logon-error envelope without a nume
   const fields = encodeCpicFieldChain(CpicTag.Start, [
     { tag: CpicTag.ProtocolVersion, value: Buffer.from("00000e0b", "hex") },
     { tag: CpicTag.Capabilities, value: Buffer.alloc(11) },
+    { tag: CpicTag.LogonStatus, value: Buffer.of(1) },
     { tag: CpicTag.SystemCodePage, value: Buffer.alloc(4) },
+    { tag: 0x0450, value: Buffer.alloc(3) },
     { tag: CpicTag.ClientAddress, value: Buffer.alloc(15) },
-    { tag: CpicTag.PartnerSystem, value: Buffer.alloc(9) },
+    { tag: 0x0020, value: Buffer.alloc(46) },
+    { tag: 0x0021, value: Buffer.alloc(10) },
+    { tag: CpicTag.PartnerSystem, value: Buffer.alloc(10) },
     { tag: CpicTag.PartnerHost, value: Buffer.alloc(17) },
     { tag: CpicTag.ConnectionType, value: Buffer.alloc(1) },
     { tag: CpicTag.KernelPatch, value: Buffer.alloc(4) },
     { tag: CpicTag.KernelRelease, value: Buffer.alloc(4) },
-    { tag: CpicTag.Destination, value: Buffer.alloc(10) },
+    { tag: CpicTag.Destination, value: Buffer.alloc(17) },
     { tag: CpicTag.Program, value: Buffer.alloc(8) },
     { tag: CpicTag.ResponseStart, value: Buffer.alloc(0) },
     {
       tag: CpicTag.AbapErrorMessage,
-      value: Buffer.from("Synthetic logon rejection", "utf16le"),
+      value: Buffer.from("Synthetic logon denial", "utf16le"),
     },
     { tag: CpicTag.End, value: Buffer.alloc(0) },
   ]);
@@ -1511,26 +1515,104 @@ test("classifies the NetWeaver 7.50 terminal logon-error envelope without a nume
       messageNumber: "",
       exceptionKey: "",
       runtimeId: "",
-      text: "Synthetic logon rejection",
+      text: "Synthetic logon denial",
     },
     negotiatedProtocolVersion: 0x0e0b,
     fields: [
       { tag: CpicTag.ProtocolVersion, byteLength: 4 },
       { tag: CpicTag.Capabilities, byteLength: 11 },
+      { tag: CpicTag.LogonStatus, byteLength: 1 },
       { tag: CpicTag.SystemCodePage, byteLength: 4 },
+      { tag: 0x0450, byteLength: 3 },
       { tag: CpicTag.ClientAddress, byteLength: 15 },
-      { tag: CpicTag.PartnerSystem, byteLength: 9 },
+      { tag: 0x0020, byteLength: 46 },
+      { tag: 0x0021, byteLength: 10 },
+      { tag: CpicTag.PartnerSystem, byteLength: 10 },
       { tag: CpicTag.PartnerHost, byteLength: 17 },
       { tag: CpicTag.ConnectionType, byteLength: 1 },
       { tag: CpicTag.KernelPatch, byteLength: 4 },
       { tag: CpicTag.KernelRelease, byteLength: 4 },
-      { tag: CpicTag.Destination, byteLength: 10 },
+      { tag: CpicTag.Destination, byteLength: 17 },
       { tag: CpicTag.Program, byteLength: 8 },
       { tag: CpicTag.ResponseStart, byteLength: 0 },
-      { tag: CpicTag.AbapErrorMessage, byteLength: 50 },
+      { tag: CpicTag.AbapErrorMessage, byteLength: 44 },
       { tag: CpicTag.End, byteLength: 0 },
     ],
   });
+});
+
+test("bounds every endpoint-controlled text coordinate in rich logon-error preambles", () => {
+  const prefix = Buffer.from("010100080101010101010000", "hex");
+  const defaults = new Map<number, number>([
+    [CpicTag.ClientAddress, 15],
+    [CpicTag.PartnerSystem, 10],
+    [CpicTag.PartnerHost, 17],
+    [CpicTag.Destination, 17],
+    [CpicTag.Program, 8],
+  ]);
+  const responseWith = (variedTag: number, variedLength: number): Buffer => {
+    const length = (tag: number): number =>
+      tag === variedTag ? variedLength : defaults.get(tag)!;
+    return Buffer.concat([
+      prefix,
+      encodeCpicFieldChain(CpicTag.Start, [
+        { tag: CpicTag.ProtocolVersion, value: Buffer.alloc(4) },
+        { tag: CpicTag.Capabilities, value: Buffer.alloc(11) },
+        { tag: CpicTag.LogonStatus, value: Buffer.of(1) },
+        { tag: CpicTag.SystemCodePage, value: Buffer.alloc(4) },
+        { tag: 0x0450, value: Buffer.alloc(3) },
+        {
+          tag: CpicTag.ClientAddress,
+          value: Buffer.alloc(length(CpicTag.ClientAddress)),
+        },
+        { tag: 0x0020, value: Buffer.alloc(46) },
+        { tag: 0x0021, value: Buffer.alloc(10) },
+        {
+          tag: CpicTag.PartnerSystem,
+          value: Buffer.alloc(length(CpicTag.PartnerSystem)),
+        },
+        {
+          tag: CpicTag.PartnerHost,
+          value: Buffer.alloc(length(CpicTag.PartnerHost)),
+        },
+        { tag: CpicTag.ConnectionType, value: Buffer.alloc(1) },
+        { tag: CpicTag.KernelPatch, value: Buffer.alloc(4) },
+        { tag: CpicTag.KernelRelease, value: Buffer.alloc(4) },
+        {
+          tag: CpicTag.Destination,
+          value: Buffer.alloc(length(CpicTag.Destination)),
+        },
+        {
+          tag: CpicTag.Program,
+          value: Buffer.alloc(length(CpicTag.Program)),
+        },
+        { tag: CpicTag.ResponseStart, value: Buffer.alloc(0) },
+        {
+          tag: CpicTag.AbapErrorMessage,
+          value: Buffer.from("Synthetic logon denial", "utf16le"),
+        },
+        { tag: CpicTag.End, value: Buffer.alloc(0) },
+      ]),
+      Buffer.from("ffff", "hex"),
+    ]);
+  };
+
+  for (const tag of defaults.keys()) {
+    for (let byteLength = 1; byteLength <= 255; byteLength += 1) {
+      assert.equal(
+        decodeCpicInitialLogonResponse(responseWith(tag, byteLength)).success,
+        false,
+        `tag 0x${tag.toString(16)} length ${byteLength}`,
+      );
+    }
+    for (const byteLength of [0, 256]) {
+      assert.throws(
+        () => decodeCpicInitialLogonResponse(responseWith(tag, byteLength)),
+        /invalid preamble/u,
+        `tag 0x${tag.toString(16)} length ${byteLength}`,
+      );
+    }
+  }
 });
 
 test("rejects malformed terminal initial-logon error envelopes", () => {
@@ -1548,6 +1630,17 @@ test("rejects malformed terminal initial-logon error envelopes", () => {
     { tag: CpicTag.Destination, value: Buffer.alloc(10) },
     { tag: CpicTag.Program, value: Buffer.alloc(8) },
     { tag: CpicTag.ResponseStart, value: Buffer.alloc(0) },
+  ] as const;
+  const richPreamble = [
+    preamble[0],
+    preamble[1],
+    { tag: CpicTag.LogonStatus, value: Buffer.of(1) },
+    preamble[2],
+    { tag: 0x0450, value: Buffer.alloc(3) },
+    preamble[3],
+    { tag: 0x0020, value: Buffer.alloc(46) },
+    { tag: 0x0021, value: Buffer.alloc(10) },
+    ...preamble.slice(4),
   ] as const;
   const responseWith = (fields: readonly CpicField[]) => Buffer.concat([
     prefix,
@@ -1583,6 +1676,34 @@ test("rejects malformed terminal initial-logon error envelopes", () => {
         value: Buffer.alloc(4),
       }, { tag: CpicTag.End, value: Buffer.alloc(0) }],
       /lacks a rejected outcome/,
+    ],
+    [
+      "wrong rich 0x0450 width",
+      [
+        ...richPreamble.slice(0, 4),
+        { tag: 0x0450, value: Buffer.alloc(4) },
+        ...richPreamble.slice(5),
+        {
+          tag: CpicTag.AbapErrorMessage,
+          value: Buffer.from("Rejected", "utf16le"),
+        },
+        { tag: CpicTag.End, value: Buffer.alloc(0) },
+      ],
+      /invalid preamble/,
+    ],
+    [
+      "wrong rich 0x0020 width",
+      [
+        ...richPreamble.slice(0, 6),
+        { tag: 0x0020, value: Buffer.alloc(45) },
+        ...richPreamble.slice(7),
+        {
+          tag: CpicTag.AbapErrorMessage,
+          value: Buffer.from("Rejected", "utf16le"),
+        },
+        { tag: CpicTag.End, value: Buffer.alloc(0) },
+      ],
+      /invalid preamble/,
     ],
   ];
 
