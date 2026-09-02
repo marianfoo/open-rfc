@@ -17,6 +17,7 @@ import {
 import { MAX_APPC_APPLICATION_DATA_FRAGMENT_LENGTH } from "./appc.js";
 import { assertUnicodeScalarText } from "../values/unicode-scalar.js";
 import { decodeSimpleCompressedRfcTableRow } from "./classic-rfc.js";
+import { decodeRecursiveXrfcParameterName } from "../values/recursive-xrfc.js";
 
 // Adapted and hardened for TypeScript from open-rfc-go's Apache-2.0
 // internal/rfcserver request/response codec and rfc/callback framing at commit
@@ -36,6 +37,8 @@ export interface RfcCallbackTable {
 }
 
 export interface RfcCallbackXrfcParameter {
+  /** Canonical ABAP parameter name decoded from the xRFC XML root. */
+  readonly name: string;
   readonly value: Buffer;
   readonly chunkCount: number;
 }
@@ -369,8 +372,15 @@ export function decodeCpicRfcCallbackRequest(
           ) {
             throw new Error("callback xRFC parameter lacks its closing boundary");
           }
+          const value = Buffer.concat(chunks, byteLength);
+          const name = decodeRecursiveXrfcParameterName(value);
+          if (names.has(name)) {
+            throw new Error(`callback CUT request repeats input parameter ${name}`);
+          }
+          names.add(name);
           xrfcParameters.push(Object.freeze({
-            value: Buffer.concat(chunks, byteLength),
+            name,
+            value,
             chunkCount: chunks.length,
           }));
           break;
