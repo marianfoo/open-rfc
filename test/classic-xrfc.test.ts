@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { RfcStructureDefinition } from "../src/metadata/rfc-structure-definition.js";
 import {
+  decodeClassicXrfcBase64,
   decodeClassicXrfcParameter,
   decodeClassicXrfcParameterName,
   encodeClassicXrfcParameter,
@@ -354,6 +355,27 @@ test("supports a flat dynamic structure without item wrappers", () => {
   assert.deepEqual(
     decodeClassicXrfcParameter("ROW", STFC_ROW, "structure", encoded),
     CAPTURED_ROWS[0],
+  );
+});
+
+test("decodes SAP MIME-wrapped XSTRING cells without accepting spaces", () => {
+  const payload = Buffer.alloc(256);
+  for (let index = 0; index < payload.length; index += 1) {
+    payload[index] = index & 0xff;
+  }
+  const canonical = payload.toString("base64");
+  const wrapped = canonical.match(/.{1,76}/gu)!.join("\n");
+  assert.deepEqual(
+    decodeClassicXrfcBase64(wrapped, "ROW.XSTR", 1_024),
+    payload,
+  );
+  assert.deepEqual(
+    decodeClassicXrfcBase64(wrapped.replaceAll("\n", "\r\n"), "ROW.XSTR", 1_024),
+    payload,
+  );
+  assert.throws(
+    () => decodeClassicXrfcBase64(wrapped.replaceAll("\n", " "), "ROW.XSTR", 1_024),
+    /non-canonical base64/u,
   );
 });
 

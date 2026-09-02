@@ -300,6 +300,31 @@ test("encodes and decodes nested structures, tables, and XSTRING exactly", () =>
   );
 });
 
+test("decodes MIME-wrapped recursive XSTRING cells", () => {
+  const payload = Buffer.alloc(256);
+  for (let index = 0; index < payload.length; index += 1) {
+    payload[index] = (index * 17) & 0xff;
+  }
+  const canonical = payload.toString("base64");
+  const wrapped = canonical.match(/.{1,76}/gu)!.join("\n");
+  const xml = Buffer.from(
+    "<ROOT><TEXT></TEXT><CHILD><COUNT>0</COUNT></CHILD>" +
+      "<ROWS></ROWS><BLOB>" + wrapped + "</BLOB></ROOT>",
+  );
+  assert.deepEqual(
+    decodeRecursiveXrfcParameter(ROOT_PARAMETER, ROOT_GRAPH, xml),
+    { TEXT: "", CHILD: { COUNT: 0 }, ROWS: [], BLOB: payload },
+  );
+  assert.throws(
+    () => decodeRecursiveXrfcParameter(
+      ROOT_PARAMETER,
+      ROOT_GRAPH,
+      Buffer.from(xml.toString().replaceAll("\n", " ")),
+    ),
+    /non-canonical base64/u,
+  );
+});
+
 test("integrates recursive graph values into the classic invocation envelope", () => {
   const outputParameter = interfaceParameter("OUT", "E", "Z_ROOT", "u");
   const metadata: RfcFunctionInterface = Object.freeze({

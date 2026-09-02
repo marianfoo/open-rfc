@@ -1125,6 +1125,32 @@ test("rejects non-canonical later base64 before allocating earlier XSTRING value
   assert.equal(base64Allocations, 0);
 });
 
+test("decodes MIME-wrapped recursive classic XSTRING cells", () => {
+  const resolved = binarySiblingPlan();
+  const payload = Buffer.alloc(256);
+  for (let index = 0; index < payload.length; index += 1) {
+    payload[index] = (index * 29) & 0xff;
+  }
+  const wrapped = payload.toString("base64").match(/.{1,76}/gu)!.join("\n");
+  assert.deepEqual(
+    decodeRecursiveClassicXrfcParameter(
+      resolved,
+      Buffer.from(`<VALUE><LEFT>${wrapped}</LEFT><RIGHT>AA==</RIGHT></VALUE>`),
+    ),
+    { LEFT: payload, RIGHT: Buffer.from([0]) },
+  );
+  assert.throws(
+    () => decodeRecursiveClassicXrfcParameter(
+      resolved,
+      Buffer.from(
+        `<VALUE><LEFT>${wrapped.replaceAll("\n", " ")}</LEFT>` +
+          "<RIGHT>AA==</RIGHT></VALUE>",
+      ),
+    ),
+    /non-canonical base64/u,
+  );
+});
+
 test("rejects unknown/accessor values and hostile or non-canonical XML", () => {
   const resolved = plan();
   assert.throws(
