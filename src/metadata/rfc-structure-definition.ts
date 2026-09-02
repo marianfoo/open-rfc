@@ -98,6 +98,38 @@ function requiredScalar(
   return scalar.value;
 }
 
+/**
+ * Detect the distinct DDIC line structure described for a queried table type.
+ * Ordinary structures return undefined; mixed row owners are malformed.
+ */
+export function detectRfcStructureDefinitionRowName(
+  queriedName: string,
+  fields: readonly CpicField[],
+): string | undefined {
+  const result = decodeClassicRfcResult(fields);
+  const fieldTable = result.tables.find((table) => table.name === "FIELDS");
+  if (fieldTable === undefined || fieldTable.rows.length === 0) return undefined;
+  if (fieldTable.rows.length > MAX_RFC_STRUCTURE_FIELDS) {
+    throw new RangeError(
+      `RFC_GET_STRUCTURE_DEFINITION FIELDS must contain at most ` +
+        `${MAX_RFC_STRUCTURE_FIELDS} rows`,
+    );
+  }
+
+  let rowName: string | undefined;
+  for (const row of fieldTable.rows) {
+    const field = decodeRfcFieldsRow(row);
+    if (rowName === undefined) rowName = field.tableName;
+    else if (field.tableName !== rowName) {
+      throw new Error(
+        `RFC_FIELDS rows belong to multiple structures: ${rowName} and ` +
+          `${field.tableName}`,
+      );
+    }
+  }
+  return rowName === queriedName ? undefined : rowName;
+}
+
 /** Normalize and validate RFC_GET_STRUCTURE_DEFINITION output. */
 export function decodeRfcStructureDefinitionResult(
   structureName: string,

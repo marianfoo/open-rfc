@@ -82,6 +82,7 @@ import { createRecursiveMetadataParameterIndex } from
   "../metadata/recursive-parameter-index.js";
 import {
   buildRfcGetStructureDefinitionRequest,
+  detectRfcStructureDefinitionRowName,
   decodeRfcStructureDefinitionResult,
   type RfcStructureDefinition,
 } from "../metadata/rfc-structure-definition.js";
@@ -1557,11 +1558,30 @@ export class DirectCpicSession {
       signal,
     );
     const decoded = await this.#decodeRegularResponse(response);
+    const rowName = await this.#decodeApplicationResult(() =>
+      detectRfcStructureDefinitionRowName(structureName, decoded.fields));
+    if (rowName !== undefined) {
+      const cachedRow = this.#structures.get(rowName);
+      if (cachedRow !== undefined) {
+        this.#structures.set(structureName, cachedRow);
+        return cachedRow;
+      }
+      // RFC_GET_STRUCTURE_DEFINITION answers a table-type query with fields
+      // owned by its line structure. Resolve that concrete structure once;
+      // do not recursively follow peer-controlled aliases without a bound.
+      const rowResponse = await this.exchange(
+        buildRfcGetStructureDefinitionRequest(rowName),
+        signal,
+      );
+      const decodedRow = await this.#decodeRegularResponse(rowResponse);
+      const rowDefinition = await this.#decodeApplicationResult(() =>
+        decodeRfcStructureDefinitionResult(rowName, decodedRow.fields));
+      this.#structures.set(rowName, rowDefinition);
+      this.#structures.set(structureName, rowDefinition);
+      return rowDefinition;
+    }
     const definition = await this.#decodeApplicationResult(() =>
-      decodeRfcStructureDefinitionResult(
-        structureName,
-        decoded.fields,
-      ));
+      decodeRfcStructureDefinitionResult(structureName, decoded.fields));
     this.#structures.set(structureName, definition);
     return definition;
   }
