@@ -1756,7 +1756,10 @@ export class DirectCpicSession {
               ) {
                 throw new TypeError("RFC callback handlers must return synchronously");
               }
-              callbackResponse = encodeCpicRfcCallbackResponse(response);
+              callbackResponse = encodeCpicRfcCallbackResponse(
+                response,
+                callbackRequest.requestedOutputs,
+              );
             }
             outgoingPlan = this.#planOutgoingRequest(
               frameCpicRfcCallbackResponse(callbackResponse),

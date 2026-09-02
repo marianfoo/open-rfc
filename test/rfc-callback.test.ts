@@ -124,6 +124,17 @@ test("encodes callback success and declared-exception responses", () => {
     } as never),
     /must not include exports/u,
   );
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      exports: [{ name: "UNREQUESTED", value: Buffer.alloc(0) }],
+    }, ["EXPECTED"]),
+    /UNREQUESTED was not requested/u,
+  );
+  assert.doesNotThrow(
+    () => encodeCpicRfcCallbackResponse({
+      exports: [{ name: "EXPECTED", value: Buffer.alloc(0) }],
+    }, ["EXPECTED", "OPTIONAL"]),
+  );
 });
 
 test("frames compact and streamed callback replies for the APPC sender", () => {
