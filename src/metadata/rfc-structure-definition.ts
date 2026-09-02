@@ -11,6 +11,10 @@ import {
   type CpicField,
 } from "../protocol/cpic.js";
 
+// Included and appended DDIC structures can repeat or skip RFC_FIELDS
+// POSITION values. This normalization follows the Apache-2.0 open-rfc-go
+// correction at commit 92d5d8f6e0a08ff7ac1580f461585cbde2a56939.
+
 export const RFC_FIELDS_UNICODE_ROW_LENGTH = 138;
 const MAX_RFC_STRUCTURE_FIELDS = 20_000;
 
@@ -132,18 +136,21 @@ export function decodeRfcStructureDefinitionResult(
         `${fieldTable.rowByteLength}; expected at least ${RFC_FIELDS_UNICODE_ROW_LENGTH}`,
     );
   }
-  const decodedFields = fieldTable.rows.map((row) => decodeRfcFieldsRow(row));
+  const decodedFields = fieldTable.rows.map((row, index) => {
+    const field = decodeRfcFieldsRow(row);
+    return {
+      ...field,
+      // POSITION is informational for included/append components and is not
+      // guaranteed to be a dense 1..n sequence. The returned row order is the
+      // authoritative sequence; the geometric invariants below still protect
+      // the structure layout.
+      position: index + 1,
+    };
+  });
   const names = new Set<string>();
   let previousEnd = 0;
   for (let index = 0; index < decodedFields.length; index += 1) {
     const field = decodedFields[index]!;
-    const expectedPosition = index + 1;
-    if (field.position !== expectedPosition) {
-      throw new Error(
-        `RFC_FIELDS ${field.fieldName} has position ${field.position}; ` +
-          `expected ${expectedPosition}`,
-      );
-    }
     if (field.tableName !== structureName) {
       throw new Error(
         `RFC_FIELDS ${field.fieldName} belongs to ${field.tableName}; ` +
