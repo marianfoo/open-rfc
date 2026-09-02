@@ -34,8 +34,8 @@ function messagePlan(options: MessageServerDirectSessionFactoryOptions): void {
   if (options.plan.route.kind !== "message-server") {
     throw new TypeError("message-server session factory requires a message-server route");
   }
-  if (options.plan.authentication.kind !== "named-user") {
-    throw new TypeError("message-server session factory requires named-user authentication");
+  if (options.plan.authentication.kind === "principal-propagation") {
+    throw new TypeError("message-server session factory requires user authentication");
   }
   if (
     options.plan.sapRouter !== undefined ||
@@ -89,8 +89,8 @@ function targetConnection(
   plan: ConnectionRoutePlan,
   target: ReturnType<typeof messageServerTargetDirectRoute>,
 ): NormalizedDirectConnection {
-  if (plan.authentication.kind !== "named-user") {
-    throw new TypeError("message-server target requires named-user authentication");
+  if (plan.authentication.kind === "principal-propagation") {
+    throw new TypeError("message-server target requires user authentication");
   }
   return Object.freeze({
     host: target.host,
@@ -99,7 +99,9 @@ function targetConnection(
     applicationServerService: target.applicationServerService,
     client: plan.logon.client,
     user: plan.authentication.user,
-    password: plan.authentication.password,
+    ...(plan.authentication.kind === "logon-ticket"
+      ? { ticket: plan.authentication.ticket }
+      : { password: plan.authentication.password }),
     language: plan.logon.language,
     sysnr: target.sysnr,
     cpicStreaming: target.cpicStreaming,
@@ -117,8 +119,8 @@ export function messageServerOwnerConnection(
   if (plan.route.kind !== "message-server") {
     throw new TypeError("message-server owner connection requires a message-server route");
   }
-  if (plan.authentication.kind !== "named-user") {
-    throw new TypeError("message-server owner connection requires named-user authentication");
+  if (plan.authentication.kind === "principal-propagation") {
+    throw new TypeError("message-server owner connection requires user authentication");
   }
   return Object.freeze({
     host: plan.route.messageServerHost,
@@ -127,7 +129,9 @@ export function messageServerOwnerConnection(
     applicationServerService: "sapdp00",
     client: plan.logon.client,
     user: plan.authentication.user,
-    password: plan.authentication.password,
+    ...(plan.authentication.kind === "logon-ticket"
+      ? { ticket: plan.authentication.ticket }
+      : { password: plan.authentication.password }),
     language: plan.logon.language,
     sysnr: "00",
     cpicStreaming: "disabled",

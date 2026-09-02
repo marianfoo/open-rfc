@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { inspect } from "node:util";
 
 import {
   planCompatibilityOwnerRoute,
@@ -135,4 +136,40 @@ test("Client and Pool transfer the routed session factory to their destination o
     assert.equal(typeof context?.sessionFactory?.open, "function");
     assert.equal(Object.isFrozen(context?.sessionFactory), true);
   }
+});
+
+test("Client transfers a hidden ticket credential without synthesizing a password", async () => {
+  const ticket = ["AjQx", "MDM="].join("");
+  const parameters = Object.freeze({
+    ashost: "application.fixture.invalid",
+    sysnr: "00",
+    client: "001",
+    user: "fixture-user",
+    mysapsso2: ticket,
+  });
+  const planned = planCompatibilityOwnerRoute(parameters);
+  assert.equal(planned.kind, "direct");
+  assert.equal(planned.connection.ticket, ticket);
+  assert.equal("password" in planned.connection, false);
+
+  const client = new Client(parameters);
+  assert.equal(client.config.connectionParameters.mysapsso2, ticket);
+  assert.equal(JSON.stringify(client.config).includes(ticket), false);
+  assert.equal(inspect(client.config).includes(ticket), false);
+
+  let captured: DirectCompatibilityOwnerFactoryContext | undefined;
+  const stopped = new Error("ticket owner creation stopped before I/O");
+  const restore = bindClientDestinationOwnerFactory({
+    create(context) {
+      captured = context;
+      throw stopped;
+    },
+  });
+  try {
+    await assert.rejects(client.open() as Promise<Client>, (error) => error === stopped);
+  } finally {
+    restore();
+  }
+  assert.equal(captured?.connection.ticket, ticket);
+  assert.equal("password" in (captured?.connection ?? {}), false);
 });

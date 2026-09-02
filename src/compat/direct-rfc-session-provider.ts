@@ -46,9 +46,9 @@ function directConnection(
   if (plan.route.kind !== "direct") {
     throw new TypeError("direct RFC session provider requires a direct route");
   }
-  if (plan.authentication.kind !== "named-user") {
+  if (plan.authentication.kind === "principal-propagation") {
     throw new TypeError(
-      "direct RFC session provider requires named-user authentication",
+      "direct RFC session provider requires user authentication",
     );
   }
   if (plan.sapRouter !== undefined && plan.connectivitySocks5 !== undefined) {
@@ -233,6 +233,7 @@ export function createDirectRfcSessionProvider(
     capabilities: Object.freeze([
       "direct-rfc-transport",
       "named-user-authentication",
+      "logon-ticket-authentication",
       ...(sapRouterTransportFactory === undefined
         ? []
         : ["saprouter-routing"] as const),

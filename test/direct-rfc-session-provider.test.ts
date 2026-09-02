@@ -45,6 +45,41 @@ function directPlan(extra: Readonly<Record<string, unknown>> = {}) {
   });
 }
 
+test("projects a ticket plan into the direct owner without a password", async () => {
+  const events: string[] = [];
+  const connections: unknown[] = [];
+  const provider = createDirectRfcSessionProvider({
+    operationTimeoutMs: 1_000,
+    ownerFactory(connection) {
+      connections.push(connection);
+      return fakeOwner(events);
+    },
+  });
+  const plan = planConnectionRoute({
+    ashost: "application.fixture.invalid",
+    client: "001",
+    user: "fixture-user",
+    mysapsso2: "AB%21",
+  });
+
+  const session = await provider.open(plan);
+  assert.deepEqual(connections, [{
+    host: "application.fixture.invalid",
+    applicationServerHost: "application.fixture.invalid",
+    port: 3_300,
+    applicationServerService: "sapdp00",
+    client: "001",
+    user: "fixture-user",
+    ticket: "AB/",
+    language: "E",
+    sysnr: "00",
+    cpicStreaming: "disabled",
+  }]);
+  assert.equal("password" in (connections[0] as object), false);
+  await session.close();
+  assert.deepEqual(events, ["owner:retire"]);
+});
+
 test("advertises and injects SAProuter only with a concrete transport", async () => {
   const events: string[] = [];
   const contexts: Array<RFCClientDestinationOwnerFactoryContext | undefined> = [];
@@ -79,6 +114,7 @@ test("advertises and injects SAProuter only with a concrete transport", async ()
   assert.deepEqual(provider.capabilities, [
     "direct-rfc-transport",
     "named-user-authentication",
+    "logon-ticket-authentication",
     "saprouter-routing",
   ]);
   const session = await provider.open(directPlan({ saprouter: ROUTE }));
@@ -111,6 +147,7 @@ test("rejects SAProuter before owner creation when no transport is composed", as
   assert.deepEqual(provider.capabilities, [
     "direct-rfc-transport",
     "named-user-authentication",
+    "logon-ticket-authentication",
   ]);
   await assert.rejects(
     provider.open(directPlan({ saprouter: ROUTE })),
@@ -139,6 +176,7 @@ test("advertises and injects Connectivity SOCKS5 only with a concrete transport"
   assert.deepEqual(provider.capabilities, [
     "direct-rfc-transport",
     "named-user-authentication",
+    "logon-ticket-authentication",
     "connectivity-socks5-tcp",
   ]);
 

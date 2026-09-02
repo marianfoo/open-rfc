@@ -228,14 +228,24 @@ function allocateSessionGenerationHandle(): number {
   return nextSessionGenerationHandle++;
 }
 
-export interface DirectCpicLogonOptions {
+interface DirectCpicLogonOptionsBase {
   readonly client: string;
   readonly user: string;
-  readonly password: string;
   readonly language?: string;
   readonly partnerHostName?: string;
   readonly kernelRelease?: string;
 }
+
+export type DirectCpicLogonOptions = DirectCpicLogonOptionsBase & (
+  | {
+    readonly password: string;
+    readonly ticket?: never;
+  }
+  | {
+    readonly ticket: string;
+    readonly password?: never;
+  }
+);
 
 export interface DirectCpicLogonResult {
   readonly negotiatedProtocolVersion: number;
@@ -974,7 +984,9 @@ export class DirectCpicSession {
         encodeCpicInitialLogonRequest({
           client: options.client,
           user: options.user,
-          password: options.password,
+          ...(options.ticket === undefined
+            ? { password: options.password }
+            : { ticket: options.ticket }),
           language,
           clientAddress: this.#localAddress,
           partnerHostName: options.partnerHostName ?? hostname(),

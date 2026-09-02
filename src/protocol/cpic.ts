@@ -17,6 +17,7 @@ import {
   type RfcErrorEnvelopeOutcome,
 } from "./rfc-error-envelope.js";
 import { scrambleRfcPassword } from "./password-scramble.js";
+import { encodeRfcLogonTicket } from "./logon-ticket.js";
 
 export const DEFAULT_MAX_CPIC_FIELD_LENGTH = 256 * 1024 * 1024;
 export const DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH = 256 * 1024 * 1024;
@@ -78,6 +79,8 @@ export enum CpicTag {
   Session = 0x0514,
   /** Successful reply marker for SYSTEM_RESET_RFC_SERVER. */
   RfcServerResetDone = 0x0523,
+  /** SAP logon ticket (MYSAPSSO2) used instead of Password. */
+  Ticket = 0x0670,
   /** Empty open/close boundary surrounding one classic xRFC XML parameter. */
   XRfcParameter = 0x3c02,
   /** UTF-8 xRFC XML data chunk inside XRfcParameter boundaries. */
@@ -116,10 +119,9 @@ interface DecodedCpicField {
   readonly value: Buffer;
 }
 
-export interface CpicInitialLogonRequestInput {
+interface CpicInitialLogonRequestBase {
   readonly client: string;
   readonly user: string;
-  readonly password: string;
   readonly language: string;
   readonly clientAddress: string;
   readonly partnerSystem?: string;
@@ -129,9 +131,21 @@ export interface CpicInitialLogonRequestInput {
   readonly functionName?: string;
   readonly kernelRelease?: string;
   readonly sessionId?: Uint8Array;
-  readonly passwordSeed?: number;
   readonly maximumRfcPacketSize?: number;
 }
+
+export type CpicInitialLogonRequestInput = CpicInitialLogonRequestBase & (
+  | {
+    readonly password: string;
+    readonly passwordSeed?: number;
+    readonly ticket?: never;
+  }
+  | {
+    readonly ticket: string;
+    readonly password?: never;
+    readonly passwordSeed?: never;
+  }
+);
 
 export interface DecodedCpicInitialLogonRequest {
   readonly fields: ReadonlyArray<{
@@ -1099,7 +1113,20 @@ export function encodeCpicInitialLogonRequest(
     );
   }
 
-  const password = scrambleRfcPassword(input.password, input.passwordSeed);
+  const hasPassword = input.password !== undefined;
+  const hasTicket = input.ticket !== undefined;
+  if (hasPassword === hasTicket) {
+    throw new TypeError(
+      "initial CPIC logon requires exactly one of password or ticket",
+    );
+  }
+  if (hasTicket && input.passwordSeed !== undefined) {
+    throw new TypeError("passwordSeed cannot be combined with ticket");
+  }
+  const credential = hasTicket
+    ? encodeRfcLogonTicket(input.ticket!)
+    : scrambleRfcPassword(input.password!, input.passwordSeed);
+  const credentialTag = hasTicket ? CpicTag.Ticket : CpicTag.Password;
   let chain: Buffer | undefined;
   try {
     const sessionId = exactBytes(
@@ -1115,7 +1142,7 @@ export function encodeCpicInitialLogonRequest(
       { tag: CpicTag.Session, value: sessionId },
       { tag: CpicTag.Client, value: Buffer.from(input.client, "ascii") },
       { tag: CpicTag.User, value: ascii(input.user, "user", 1, 40) },
-      { tag: CpicTag.Password, value: password },
+      { tag: credentialTag, value: credential },
       {
         tag: CpicTag.Language,
         value: Buffer.from(input.language.toUpperCase(), "ascii"),
@@ -1180,7 +1207,7 @@ export function encodeCpicInitialLogonRequest(
     ]);
   } finally {
     chain?.fill(0);
-    password.fill(0);
+    credential.fill(0);
   }
 }
 
@@ -1208,7 +1235,9 @@ export function decodeCpicInitialLogonRequest(
   if (
     decoded.fields.length !== INITIAL_TAG_ORDER.length ||
     decoded.fields.some(
-      (field, index) => field.tag !== INITIAL_TAG_ORDER[index],
+      (field, index) => index === 7
+        ? field.tag !== CpicTag.Password && field.tag !== CpicTag.Ticket
+        : field.tag !== INITIAL_TAG_ORDER[index],
     )
   ) {
     throw new Error(

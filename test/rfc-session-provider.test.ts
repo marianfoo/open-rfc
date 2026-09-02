@@ -579,6 +579,7 @@ test("production provider advertises only its connected route implementations", 
   assert.deepEqual(provider.capabilities, [
     "direct-rfc-transport",
     "named-user-authentication",
+    "logon-ticket-authentication",
     "saprouter-routing",
     "connectivity-socks5-tcp",
     "message-server-rfc-transport",

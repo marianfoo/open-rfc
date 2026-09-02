@@ -58,6 +58,79 @@ test("plans direct RFC with the existing normalization contract", () => {
   assert.ok(Object.isFrozen(plan.requiredProviderCapabilities));
 });
 
+test("plans a redacted logon-ticket credential behind a distinct capability", () => {
+  const source: Record<string, unknown> = {
+    ashost: "application.example.test",
+    client: "001",
+    user: "RFCUSER",
+    mysapsso2: "AB%21",
+  };
+  const plan = planConnectionRoute(source);
+  source.mysapsso2 = "changed";
+
+  assert.equal(plan.authentication.kind, "logon-ticket");
+  if (plan.authentication.kind !== "logon-ticket") assert.fail("ticket plan");
+  assert.equal(plan.authentication.user, "RFCUSER");
+  assert.equal(plan.authentication.ticket, "AB/");
+  assert.deepEqual(plan.requiredProviderCapabilities, [
+    "direct-rfc-transport",
+    "logon-ticket-authentication",
+  ]);
+  assert.doesNotMatch(inspect(plan, { depth: null }), /AB\//u);
+  assert.doesNotMatch(JSON.stringify(plan), /AB\//u);
+  assert.throws(
+    () => assertConnectionRouteCapabilities(
+      plan,
+      new Set(["direct-rfc-transport"]),
+    ),
+    (error: unknown) =>
+      error instanceof MissingConnectionProviderCapabilitiesError &&
+      error.missingCapabilities[0] === "logon-ticket-authentication",
+  );
+});
+
+test("composes ticket authentication with classic preview transports", () => {
+  const ticket = {
+    client: "001",
+    user: "RFCUSER",
+    mysapsso2: "AjQxMDM=",
+  };
+  const messageServer = planConnectionRoute({
+    ...ticket,
+    mshost: "message.example.test",
+    sysid: "QAS",
+    group: "PUBLIC",
+  });
+  assert.deepEqual(messageServer.requiredProviderCapabilities, [
+    "message-server-rfc-transport",
+    "logon-ticket-authentication",
+  ]);
+
+  const sapRouter = planConnectionRoute({
+    ...ticket,
+    ashost: "application.example.test",
+    saprouter: "/H/router.example.test/H/",
+  });
+  assert.deepEqual(sapRouter.requiredProviderCapabilities, [
+    "direct-rfc-transport",
+    "logon-ticket-authentication",
+    "saprouter-routing",
+  ]);
+
+  const socks5 = planConnectionRoute({
+    ...ticket,
+    ashost: "application.example.test",
+    connectivity_socks5_proxy_host: "proxy.example.test",
+    connectivity_socks5_proxy_port: 20_004,
+    connectivity_socks5_access_token: "short-lived-token",
+  });
+  assert.deepEqual(socks5.requiredProviderCapabilities, [
+    "direct-rfc-transport",
+    "logon-ticket-authentication",
+    "connectivity-socks5-tcp",
+  ]);
+});
+
 test("uses the pinned direct then message-server then WebSocket precedence", () => {
   const direct = planConnectionRoute({
     ...namedUser,
@@ -383,7 +456,10 @@ test("fails closed for conflicting, incomplete, or unsupported authentication an
   const cases: ReadonlyArray<readonly [Record<string, unknown>, RegExp]> = [
     [{ ...base, user: "RFCUSER" }, /user and passwd must be supplied together/u],
     [{ ...base, passwd: "secret" }, /user and passwd must be supplied together/u],
-    [{ ...base, ...namedUser, business_user_token: "business-secret" }, /business_user_token cannot be combined with user or passwd/u],
+    [{ ...base, mysapsso2: "AjQxMDM=" }, /user and mysapsso2 must be supplied together/u],
+    [{ ...base, user: "RFCUSER", mysapsso2: 1234 }, /mysapsso2 must be a string/u],
+    [{ ...base, ...namedUser, mysapsso2: "AjQxMDM=" }, /passwd and mysapsso2 cannot be combined/u],
+    [{ ...base, ...namedUser, business_user_token: "business-secret" }, /business_user_token cannot be combined/u],
     [{ ...base, business_user_token: "business-secret" }, /business_user_token requires a Connectivity proxy route/u],
     [{ ...base, ...namedUser, connectivity_proxy_host: "proxy.internal" }, /connectivity_proxy_host and connectivity_proxy_port must be supplied together/u],
     [{ ...base, ...namedUser, connectivity_proxy_port: 20001 }, /connectivity_proxy_host and connectivity_proxy_port must be supplied together/u],

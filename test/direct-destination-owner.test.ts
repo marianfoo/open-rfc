@@ -789,6 +789,25 @@ test("validates the complete destination composition before any session I/O", as
       pattern,
     );
   }
+  assert.throws(
+    () => new DirectDestinationOwner({
+      ...validationOwnerOptions(),
+      connection: {
+        ...CONNECTION,
+        ticket: "ticket",
+      } as never,
+    }),
+    /exactly one of password or ticket/u,
+  );
+  const noCredential = { ...CONNECTION } as { password?: string };
+  delete noCredential.password;
+  assert.throws(
+    () => new DirectDestinationOwner({
+      ...validationOwnerOptions(),
+      connection: noCredential as never,
+    }),
+    /exactly one of password or ticket/u,
+  );
 
   for (const identity of [null, []]) {
     assert.throws(
@@ -1016,6 +1035,47 @@ test("production compatibility owners isolate principals, caches, cancellation, 
       supportA.owner.retire(),
       supportB.owner.retire(),
     ]);
+  }
+});
+
+test("domain-separates password and ticket principal identities", async () => {
+  const pool = Object.freeze({
+    maxConnections: 1,
+    maxWaiters: 1,
+    acquireTimeoutMs: 1_000,
+    lifecycleTimeoutMs: 1_000,
+    shutdownTimeoutMs: 1_000,
+    lowWater: 0,
+    idleHigh: 1,
+    validateOnCheckout: false,
+  });
+  const sharedText = "same-credential-text";
+  const connectionBase = {
+    host: CONNECTION.host,
+    applicationServerHost: CONNECTION.applicationServerHost,
+    port: CONNECTION.port,
+    applicationServerService: CONNECTION.applicationServerService,
+    client: CONNECTION.client,
+    user: CONNECTION.user,
+    language: CONNECTION.language,
+    sysnr: CONNECTION.sysnr,
+    cpicStreaming: CONNECTION.cpicStreaming,
+  } as const;
+  const passwordOwner = productionDirectCompatibilityOwnerFactory.create({
+    connection: Object.freeze({ ...connectionBase, password: sharedText }),
+    applicationPool: pool,
+  });
+  const ticketOwner = productionDirectCompatibilityOwnerFactory.create({
+    connection: Object.freeze({ ...connectionBase, ticket: sharedText }),
+    applicationPool: pool,
+  });
+  try {
+    assert.notEqual(
+      passwordOwner.configuration.identity.applicationCapability,
+      ticketOwner.configuration.identity.applicationCapability,
+    );
+  } finally {
+    await Promise.allSettled([passwordOwner.retire(), ticketOwner.retire()]);
   }
 });
 

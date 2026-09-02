@@ -4,6 +4,7 @@ import {
   APPC_RECORD_HEADER_LENGTH,
   AppcFunction,
   decodeAppcAsyncDataInfo,
+  decodeAppcDataFragment,
   decodeAppcHeader,
   encodeAppcControlRecord,
 } from "../../src/protocol/appc.js";
@@ -53,6 +54,8 @@ export interface ScriptedRfcGeneration {
   readonly logonStatus?: number;
   /** Raw initial CPIC response override for malformed-envelope tests. */
   readonly logonResponse?: Uint8Array;
+  /** Inspect the exact initial CPIC request carried by the APPC data record. */
+  readonly inspectInitialLogon?: (request: Buffer) => void;
   readonly replies?: readonly ScriptedRegularRfcReply[];
 }
 
@@ -282,6 +285,7 @@ export class ScriptedRfcPeer {
       if (header.functionCode !== AppcFunction.SapSend) {
         throw new Error("scripted RFC peer expected initial CPIC logon send");
       }
+      state.script.inspectInitialLogon?.(decodeAppcDataFragment(payload).data);
       this.#write(socket, encodeIncomingAppcDataRecord({
         conversationId: state.conversationId,
         communicationIndex: 0,

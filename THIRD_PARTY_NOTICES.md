@@ -48,11 +48,13 @@ two files named above were made by `open-rfc` contributors.
 
 ## open-rfc-go (Apache-2.0)
 
-The following files are modified TypeScript adaptations by `open-rfc`
+The following files contain modified TypeScript adaptations by `open-rfc`
 contributors:
 
 - `src/protocol/lz4-block.ts`
 - `src/protocol/fast-serializer.ts`
+- `src/protocol/logon-ticket.ts`
+- `src/protocol/cpic.ts`
 
 They use the bounded fast-serializer work in `open-rfc-go` at
 commit `92d5d8f6e0a08ff7ac1580f461585cbde2a56939` as their implementation basis,
@@ -62,6 +64,8 @@ specifically these upstream files:
 - `internal/fastser/container.go`
 - `internal/fastser/record.go`
 - `internal/fastser/fields.go`
+- `internal/cpic/ticket.go`
+- `internal/cpic/logon.go`
 
 The pinned upstream project carries this notice:
 
@@ -88,6 +92,15 @@ the published LZ4 Block Format Description at lz4/lz4 v1.10.0, commit
 binary, or runtime dependency is redistributed. The accompanying tests were
 authored for this project from neutral synthetic values; no upstream packet-
 capture fixture is redistributed.
+
+The MYSAPSSO2 adaptation uses the upstream ticket normalization and CPIC
+credential-selection behavior: SAP cookie escaping is normalized, ticket text
+is encoded as UTF-16LE in field `0x0670`, and the password field is omitted.
+The TypeScript adaptation additionally preserves literal `+`, rejects malformed
+percent escapes and non-Base64 text, imposes a fixed input bound, makes password
+and ticket credentials mutually exclusive in its types and runtime validation,
+clears temporary credential bytes, and keeps tickets out of inspected and JSON
+route plans. No upstream capture or ticket value is redistributed.
 
 The public repository and npm package include a copy of the Apache License,
 Version 2.0 in their root `LICENSE` file. Unless required by applicable law or

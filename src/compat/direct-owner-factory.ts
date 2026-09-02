@@ -57,7 +57,9 @@ DirectCompatibilityOwnerFactory = Object.freeze({
     const principalId = fingerprint("principal", [
       connection.client,
       connection.user,
-      connection.password,
+      connection.ticket === undefined
+        ? ["password", connection.password]
+        : ["ticket", connection.ticket],
     ]);
     return new DirectDestinationOwner({
       connection,

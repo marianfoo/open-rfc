@@ -19,6 +19,7 @@ const recognizedDirectParameterKeys = [
   "client", "CLIENT",
   "user", "USER",
   "passwd", "PASSWD",
+  "mysapsso2", "MYSAPSSO2",
   "lang", "LANG",
   "cpic_streaming", "CPIC_STREAMING",
   "mshost", "MSHOST",
@@ -44,6 +45,7 @@ test("keeps every captured route credential non-enumerable", () => {
     client: "001",
     user: "RFCUSER",
     passwd: "password-fixture",
+    mysapsso2: "ticket-fixture",
     connectivity_proxy_authentication: "proxy-authorization-fixture",
     connectivity_location_id: "proxy-location-fixture",
     connectivity_socks5_access_token: "connectivity-token-fixture",
@@ -53,6 +55,7 @@ test("keeps every captured route credential non-enumerable", () => {
   const snapshot = snapshotDirectConnectionParameters(values);
   for (const [key, secret] of [
     ["passwd", values.passwd],
+    ["mysapsso2", values.mysapsso2],
     ["connectivity_proxy_authentication", values.connectivity_proxy_authentication],
     ["connectivity_location_id", values.connectivity_location_id],
     ["connectivity_socks5_access_token", values.connectivity_socks5_access_token],
@@ -223,6 +226,47 @@ test("normalizes lowercase and uppercase direct RFC parameters", () => {
   });
   assert.equal(languageIsoToSap("de"), "D");
   assert.equal(languageSapToIso("D"), "DE");
+});
+
+test("normalizes and hides MYSAPSSO2 instead of requiring a password", () => {
+  const captured = captureDirectConnectionParameters({
+    ASHOST: "sap.example.test",
+    CLIENT: "001",
+    USER: "RFCUSER",
+    MYSAPSSO2: "AB%21",
+  });
+  assertHiddenCredential(captured.connectionParameters, "MYSAPSSO2", "AB%21");
+  assert.deepEqual(captured.normalized, {
+    host: "sap.example.test",
+    applicationServerHost: "sap.example.test",
+    port: 3300,
+    applicationServerService: "sapdp00",
+    client: "001",
+    user: "RFCUSER",
+    ticket: "AB/",
+    language: "E",
+    sysnr: "00",
+    cpicStreaming: "disabled",
+  });
+  assert.throws(
+    () => normalizeDirectConnectionParameters({
+      ashost: "sap.example.test",
+      client: "001",
+      user: "RFCUSER",
+      passwd: "secret",
+      mysapsso2: "AjQxMDM=",
+    }),
+    /exactly one of passwd or mysapsso2/u,
+  );
+  assert.throws(
+    () => normalizeDirectConnectionParameters({
+      ashost: "sap.example.test",
+      client: "001",
+      user: "RFCUSER",
+      mysapsso2: 1234,
+    }),
+    /mysapsso2 must be a string/u,
+  );
 });
 
 test("converts archived SAP and ISO language identifiers bidirectionally", () => {
