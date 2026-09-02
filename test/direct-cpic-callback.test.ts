@@ -172,6 +172,38 @@ test("fails closed when a callback handler attempts asynchronous work", async (t
   assert.equal(session.state, "closed");
 });
 
+test("fails closed when a callback handler returns an unrequested output", async (t) => {
+  const peer = await ScriptedRfcPeer.start([{
+    replies: [{
+      kind: "callbacks",
+      requests: [callbackRequest("Z_WRONG_OUTPUT", "blocked")],
+      final: { kind: "fields", fields: successfulRegularFields() },
+    }],
+  }]);
+  t.after(() => peer.close());
+  const session = await DirectCpicSession.open({
+    host: "127.0.0.1",
+    port: peer.port,
+    applicationServerService: "sapdp00",
+    operationTimeoutMs: 1_000,
+    callbacks: {
+      Z_WRONG_OUTPUT: () => ({
+        exports: [{ name: "UNREQUESTED", value: Buffer.alloc(0) }],
+      }),
+    },
+  });
+  await session.logonAndPing({
+    client: "001",
+    user: "RFCUSR",
+    password: "not-a-real-password",
+  });
+  await assert.rejects(
+    session.invokeClassicWithMetadata(OUTER_METADATA, {}, new Map()),
+    /RFC_INVALID_PROTOCOL/u,
+  );
+  assert.equal(session.state, "closed");
+});
+
 test("bounds callback recursion within one outer call", async (t) => {
   let responses = 0;
   const peer = await ScriptedRfcPeer.start([{

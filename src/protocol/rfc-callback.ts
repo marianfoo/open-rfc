@@ -497,6 +497,7 @@ function encodeCallbackEnvelope(fields: readonly CpicField[]): Buffer {
 /** Encode one raw successful callback response before APPC framing. */
 export function encodeCpicRfcCallbackResponse(
   response: RfcCallbackResponse,
+  requestedOutputs?: readonly string[],
 ): Buffer {
   if (typeof response !== "object" || response === null || Array.isArray(response)) {
     throw new TypeError("callback response must be an object");
@@ -532,6 +533,19 @@ export function encodeCpicRfcCallbackResponse(
       throw new Error(`callback response repeats parameter ${table.name}`);
     }
     names.add(table.name);
+  }
+  if (requestedOutputs !== undefined) {
+    if (!Array.isArray(requestedOutputs)) {
+      throw new TypeError("callback requested outputs must be an array");
+    }
+    const requested = new Set(requestedOutputs);
+    for (const name of names) {
+      if (!requested.has(name)) {
+        throw new Error(
+          `callback response parameter ${name} was not requested by the caller`,
+        );
+      }
+    }
   }
   const fields: CpicField[] = [
     { tag: CpicTag.Unresolved0420, value: Buffer.alloc(4) },
