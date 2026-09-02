@@ -242,8 +242,8 @@
     },
     {
       "path": "dist/src/protocol/classic-rfc.d.ts",
-      "bytes": 4427,
-      "sha256": "dff71e9dc26b18e9af845f3cc4892cb8f1ceb536d4bd27e9ec7587110e46d7a3"
+      "bytes": 4669,
+      "sha256": "bc5e42275a190382860ae1bd611e16ab961cc70f7443fce570896f0b0f6a7815"
     },
     {
       "path": "dist/src/protocol/cpic.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "a815c89322830bcbe4f5a4903af7e1992fc1e0bf0bc4ffa52a440dafacb5c01f"
+  "aggregateSha256": "59d0b1664ee0c88914599977edaf6afe4a02fb05ec5a8d040aca8e0ccc2c3993"
 }

@@ -16,6 +16,7 @@ import {
 } from "./bytes.js";
 import { MAX_APPC_APPLICATION_DATA_FRAGMENT_LENGTH } from "./appc.js";
 import { assertUnicodeScalarText } from "../values/unicode-scalar.js";
+import { decodeSimpleCompressedRfcTableRow } from "./classic-rfc.js";
 
 // Adapted and hardened for TypeScript from open-rfc-go's Apache-2.0
 // internal/rfcserver request/response codec and rfc/callback framing at commit
@@ -191,6 +192,7 @@ export function decodeCpicRfcCallbackRequest(
     const tables: RfcCallbackTable[] = [];
     const xrfcParameters: RfcCallbackXrfcParameter[] = [];
     const names = new Set<string>();
+    let decodedTableBytes = 0n;
 
     for (let index = 0; index < decoded.fields.length; index += 1) {
       const field = decoded.fields[index]!;
@@ -254,17 +256,49 @@ export function decodeCpicRfcCallbackRequest(
           const rowByteLength = headerField.value.readUInt32BE(0);
           const rowCount = headerField.value.readUInt32BE(4);
           const rows: Buffer[] = [];
+          let tableDecodedBytes = 0n;
           index += 2;
           while (
             rows.length < rowCount &&
             (decoded.fields[index]?.tag === CpicTag.TableContent ||
               decoded.fields[index]?.tag === CpicTag.TableCompr)
           ) {
-            const row = decoded.fields[index]!.value;
+            const rowField = decoded.fields[index]!;
+            const row = rowField.value;
             if (row.byteLength === 0 || row.byteLength > rowByteLength) {
               throw new Error(`callback table ${name} row ${rows.length} has invalid length`);
             }
-            rows.push(Buffer.from(row));
+            const retainedByteLength = rowField.tag === CpicTag.TableCompr
+              ? rowByteLength
+              : row.byteLength;
+            tableDecodedBytes += BigInt(retainedByteLength);
+            if (
+              tableDecodedBytes > BigInt(DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH)
+            ) {
+              throw new RangeError(
+                `callback table ${name} decoded bytes exceed ` +
+                  `${DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH}`,
+              );
+            }
+            decodedTableBytes += BigInt(retainedByteLength);
+            if (
+              decodedTableBytes > BigInt(DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH)
+            ) {
+              throw new RangeError(
+                `callback decoded table bytes exceed ` +
+                  `${DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH}`,
+              );
+            }
+            rows.push(
+              rowField.tag === CpicTag.TableCompr
+                ? decodeSimpleCompressedRfcTableRow(
+                  row,
+                  rowByteLength,
+                  name,
+                  rows.length,
+                )
+                : Buffer.from(row),
+            );
             index += 1;
           }
           if (rows.length !== rowCount) {
