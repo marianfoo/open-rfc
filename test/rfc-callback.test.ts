@@ -56,6 +56,36 @@ test("decodes a bounded CUT callback request with raw values", () => {
   }]);
 });
 
+test("expands bounded simple-compressed callback table rows", () => {
+  const request = (rowByteLength: number): Buffer => {
+    const tableHeader = Buffer.alloc(8);
+    tableHeader.writeUInt32BE(rowByteLength, 0);
+    tableHeader.writeUInt32BE(1, 4);
+    return Buffer.concat([
+      Buffer.from("05020000", "hex"),
+      encodeCpicFieldChain(CpicTag.ContextEnd, [
+        { tag: CpicTag.Function, value: Buffer.from("Z_CALLBACK", "utf16le") },
+        { tag: CpicTag.TableName, value: Buffer.from("ITEMS", "utf16le") },
+        { tag: CpicTag.TableHeader, value: tableHeader },
+        { tag: CpicTag.TableCompr, value: Buffer.from("4120", "hex") },
+        { tag: CpicTag.End, value: Buffer.alloc(0) },
+      ]),
+      Buffer.from("ffff", "hex"),
+    ]);
+  };
+
+  assert.deepEqual(decodeCpicRfcCallbackRequest(request(4)).tables, [{
+    name: "ITEMS",
+    rowByteLength: 4,
+    rows: [Buffer.from("41202020", "hex")],
+  }]);
+
+  assert.throws(
+    () => decodeCpicRfcCallbackRequest(request(0xffff_ffff)),
+    /decoded bytes exceed/u,
+  );
+});
+
 test("encodes callback success and declared-exception responses", () => {
   const echo = Buffer.from("callback".padEnd(20, " "), "utf16le");
   const response = encodeCpicRfcCallbackResponse({

@@ -207,6 +207,26 @@ function decodeSimpleCompressedTableRow(
   return decoded;
 }
 
+/**
+ * Decode one retained simple-compressed classic-RFC table row.
+ *
+ * @internal
+ */
+export function decodeSimpleCompressedRfcTableRow(
+  value: Uint8Array,
+  declaredRowByteLength: number,
+  tableName: string,
+  rowIndex: number,
+): Buffer {
+  return decodeSimpleCompressedTableRow(
+    value,
+    declaredRowByteLength,
+    tableName,
+    rowIndex,
+    false,
+  );
+}
+
 function borrowedWireBuffer(value: Uint8Array, path: string): Buffer {
   const view = intrinsicUint8ArrayView(value, path);
   return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
