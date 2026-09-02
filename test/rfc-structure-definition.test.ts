@@ -3,12 +3,14 @@ import test from "node:test";
 
 import {
   RFC_FIELDS_UNICODE_ROW_LENGTH,
+  detectRfcStructureDefinitionRowName,
   decodeRfcStructureDefinitionResult,
 } from "../src/metadata/rfc-structure-definition.js";
 import { encodeAbapChar } from "../src/protocol/classic-rfc.js";
 import { CpicTag, type CpicField } from "../src/protocol/cpic.js";
 
 interface FieldInput {
+  readonly tableName?: string;
   readonly name: string;
   readonly position: number;
   readonly offset: number;
@@ -17,7 +19,7 @@ interface FieldInput {
 
 function fieldRow(input: FieldInput): Buffer {
   const row = Buffer.alloc(RFC_FIELDS_UNICODE_ROW_LENGTH);
-  encodeAbapChar("Z_INCLUDED", 30).copy(row, 0);
+  encodeAbapChar(input.tableName ?? "Z_INCLUDED", 30).copy(row, 0);
   encodeAbapChar(input.name, 30).copy(row, 60);
   row.writeInt32LE(input.position, 120);
   row.writeInt32LE(input.offset, 124);
@@ -95,5 +97,55 @@ test("keeps structural geometry authoritative after position normalization", () 
       ]),
     ),
     /beyond structure length/u,
+  );
+});
+
+test("detects a table type's distinct row structure without accepting mixed owners", () => {
+  const rowFields = resultFields([
+    fieldRow({
+      tableName: "Z_LINE",
+      name: "FIRST",
+      position: 1,
+      offset: 0,
+      length: 4,
+    }),
+    fieldRow({
+      tableName: "Z_LINE",
+      name: "SECOND",
+      position: 2,
+      offset: 4,
+      length: 4,
+    }),
+  ]);
+  assert.equal(
+    detectRfcStructureDefinitionRowName("Z_TABLE_TYPE", rowFields),
+    "Z_LINE",
+  );
+  assert.equal(
+    detectRfcStructureDefinitionRowName("Z_LINE", rowFields),
+    undefined,
+  );
+
+  assert.throws(
+    () => detectRfcStructureDefinitionRowName(
+      "Z_TABLE_TYPE",
+      resultFields([
+        fieldRow({
+          tableName: "Z_LINE_A",
+          name: "FIRST",
+          position: 1,
+          offset: 0,
+          length: 4,
+        }),
+        fieldRow({
+          tableName: "Z_LINE_B",
+          name: "SECOND",
+          position: 2,
+          offset: 4,
+          length: 4,
+        }),
+      ]),
+    ),
+    /multiple structures/u,
   );
 });

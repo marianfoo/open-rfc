@@ -131,7 +131,9 @@ The structure-definition adaptation normalizes `RFC_FIELDS` rows into their
 authoritative returned order because included and appended DDIC components can
 repeat or skip informational `POSITION` values. It retains unique-name,
 non-overlap, non-negative, and total-structure bounds before exposing the
-normalized definition.
+normalized definition. For legacy table-type metadata, it also detects the
+distinct row-structure owner and performs one bounded dereference instead of
+rejecting the valid owner mismatch or following an unbounded alias chain.
 
 The public repository and npm package include a copy of the Apache License,
 Version 2.0 in their root `LICENSE` file. Unless required by applicable law or

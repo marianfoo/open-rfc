@@ -222,8 +222,8 @@
     },
     {
       "path": "dist/src/metadata/rfc-structure-definition.d.ts",
-      "bytes": 1248,
-      "sha256": "fe99785891d5469e72f3891fbdf203780e52b61b7a403878a18392b1052a8318"
+      "bytes": 1540,
+      "sha256": "99d4c2908d65e226d12bbc0a4dc447dc84b50da1be9bc75db8f2dfb852ff3a2e"
     },
     {
       "path": "dist/src/pool/connection-pool-runtime.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "dcc8824b1cf51b6d63a4cf2fceab74dcf7481d6e1978b575ae488b654c92e473"
+  "aggregateSha256": "4428b7b417bc380a4addbe7d92467d27f3e929af3991cdf0ab3dcf5e336ba7ea"
 }
