@@ -51,9 +51,30 @@ test("decodes a bounded CUT callback request with raw values", () => {
     rows: [Buffer.from("01020304", "hex")],
   }]);
   assert.deepEqual(decoded.xrfcParameters, [{
+    name: "DEEP",
     value: Buffer.from("<DEEP><TEXT>one</TEXT></DEEP>"),
     chunkCount: 1,
   }]);
+});
+
+test("rejects malformed and colliding callback xRFC parameter roots", () => {
+  const request = (xml: string, importName?: string): Buffer =>
+    encodeCpicCutFunctionRequest({
+      functionName: "Z_CALLBACK",
+      imports: importName === undefined
+        ? []
+        : [{ name: importName, value: Buffer.alloc(2) }],
+      xrfcParameters: [{ name: "DIAGNOSTIC", value: Buffer.from(xml) }],
+    }).subarray(0, -8);
+
+  assert.throws(
+    () => decodeCpicRfcCallbackRequest(request("not XML")),
+    /top-level tag/u,
+  );
+  assert.throws(
+    () => decodeCpicRfcCallbackRequest(request("<DEEP></DEEP>", "DEEP")),
+    /repeats input parameter DEEP/u,
+  );
 });
 
 test("expands bounded simple-compressed callback table rows", () => {

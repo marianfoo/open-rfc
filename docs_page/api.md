@@ -87,9 +87,10 @@ graph, omit the option and keep the fail-closed result.
 Callback handlers execute while the outer call owns its physical session. Do
 not call the same client or await work from a handler. Interpret and construct
 raw parameter bytes using the callback RFM's exact ABAP metadata; this preview
-does not project callback values into normal JavaScript RFC objects. At most 64
-callbacks are serviced during one outer call. Callback request and response
-bytes must not be logged.
+does not project callback values into normal JavaScript RFC objects. Each xRFC
+input includes its canonical `name`, raw XML `value`, and source `chunkCount`.
+At most 64 callbacks are serviced during one outer call. Callback request and
+response bytes must not be logged.
 
 ```ts
 const client = new Client(connectionParameters, {
