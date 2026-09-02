@@ -12,6 +12,10 @@ import {
   decodeFastSerializerParameterAnnouncement,
   decodeFastSerializerRecord,
   decodeFastSerializerRecords,
+  encodeFastSerializerItem,
+  encodeFastSerializerParameterAnnouncement,
+  encodeFastSerializerRecord,
+  encodeFastSerializerRecords,
   fastSerializerTypeName,
 } from "../src/protocol/fast-serializer.js";
 
@@ -80,6 +84,40 @@ test("rejects malformed, truncated, and over-budget items", () => {
   assert.throws(
     () => decodeFastSerializerItems(Buffer.concat([valid, valid]), { maxItems: 1 }),
     /item count exceeds/u,
+  );
+});
+
+test("encodes exact self-closing items and snapshots caller bytes", () => {
+  const value = Buffer.from("payload");
+  const encoded = encodeFastSerializerItem(
+    FAST_SERIALIZER_PARAMETER_ITEM_ID,
+    value,
+  );
+  value.fill(0);
+
+  assert.deepEqual(
+    encoded,
+    item(FAST_SERIALIZER_PARAMETER_ITEM_ID, Buffer.from("payload")),
+  );
+  assert.equal(decodeFastSerializerItem(encoded).data.toString(), "payload");
+});
+
+test("rejects item identifiers and values outside the wire grammar", () => {
+  assert.throws(
+    () => encodeFastSerializerItem(-1, Buffer.alloc(0)),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "INVALID_ARGUMENT",
+  );
+  assert.throws(
+    () => encodeFastSerializerItem(0x1_0000, Buffer.alloc(0)),
+    /identifier/u,
+  );
+  assert.throws(
+    () => encodeFastSerializerItem(1, Buffer.alloc(0x1_0000)),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "ITEM_LIMIT_EXCEEDED",
   );
 });
 
@@ -182,6 +220,79 @@ test("fails closed on unsupported, malformed, empty, and truncated records", () 
   );
 });
 
+test("encodes every established record framing rule as one strict stream", () => {
+  const inputs = [
+    {
+      tag: FastSerializerRecordTag.Descriptor,
+      value: Buffer.from("\\TYPE=Z_NEUTRAL", "ascii"),
+    },
+    {
+      tag: FastSerializerRecordTag.Character,
+      value: Buffer.from("ABC", "ascii"),
+    },
+    {
+      tag: FastSerializerRecordTag.Int4,
+      value: Buffer.from([0x00, 0x01, 0x00, 0x00]),
+    },
+    {
+      tag: FastSerializerRecordTag.Padded,
+      value: Buffer.from("AB", "utf16le"),
+    },
+    {
+      tag: FastSerializerRecordTag.String,
+      value: Buffer.from("open-rfc", "utf8"),
+    },
+    { tag: FastSerializerRecordTag.End, value: Buffer.alloc(0) },
+  ] as const;
+  const encoded = encodeFastSerializerRecords(inputs);
+
+  assert.deepEqual(
+    encoded,
+    Buffer.concat([
+      descriptor("Z_NEUTRAL"),
+      Buffer.from([FastSerializerRecordTag.Character, 3, 0x80, 0x41, 0x42, 0x43]),
+      Buffer.from([FastSerializerRecordTag.Int4, 0x00, 0x01, 0x00, 0x00]),
+      Buffer.from([FastSerializerRecordTag.Padded, 0x00, 0x04, 0x41, 0x00, 0x42, 0x00]),
+      Buffer.from([
+        FastSerializerRecordTag.String,
+        0x08, 0xc0, 0x08, 0x00,
+        ...Buffer.from("open-rfc"),
+      ]),
+      Buffer.from([FastSerializerRecordTag.End]),
+    ]),
+  );
+  assert.deepEqual(
+    decodeFastSerializerRecords(encoded).map(({ tag, value }) => ({ tag, value })),
+    inputs,
+  );
+});
+
+test("rejects unrepresentable record values rather than truncating them", () => {
+  const rejected: ReadonlyArray<readonly [FastSerializerRecordTag, Buffer]> = [
+    [FastSerializerRecordTag.Character, Buffer.alloc(0)],
+    [FastSerializerRecordTag.Character, Buffer.alloc(256)],
+    [FastSerializerRecordTag.Descriptor, Buffer.alloc(256)],
+    [FastSerializerRecordTag.Int4, Buffer.alloc(3)],
+    [FastSerializerRecordTag.Padded, Buffer.alloc(0x1_0000)],
+    [FastSerializerRecordTag.String, Buffer.alloc(0x4000)],
+    [FastSerializerRecordTag.End, Buffer.of(1)],
+  ];
+  for (const [tag, value] of rejected) {
+    assert.throws(
+      () => encodeFastSerializerRecord(tag, value),
+      (error: unknown) =>
+        error instanceof FastSerializerProtocolError &&
+        error.code === "MALFORMED_RECORD",
+    );
+  }
+  assert.throws(
+    () => encodeFastSerializerRecord(0x99 as FastSerializerRecordTag, Buffer.of(1)),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "UNSUPPORTED_RECORD_TAG",
+  );
+});
+
 test("decodes a synthetic field-description list with both width conventions", () => {
   const encoded = Buffer.concat([
     Buffer.from([0x44, 4]),
@@ -236,6 +347,77 @@ test("recognizes generated descriptors and rejects unknown field grammars", () =
   assert.throws(
     () => decodeFastSerializerParameterAnnouncement(malformedName),
     /plain protocol identifier/u,
+  );
+});
+
+test("encodes and decodes exact parameter announcements", () => {
+  const fields = [
+    { typeCode: FastSerializerTypeCode.Int4, name: "NUM" },
+    {
+      typeCode: FastSerializerTypeCode.Character,
+      width: 20,
+      name: "TEXT",
+    },
+    { typeCode: FastSerializerTypeCode.Raw, width: 3, name: "RAW" },
+    { typeCode: FastSerializerTypeCode.String, name: "DYNTXT" },
+  ] as const;
+  const encoded = encodeFastSerializerParameterAnnouncement({
+    typeName: "Z_NEUTRAL",
+    fields,
+  });
+
+  assert.deepEqual(
+    decodeFastSerializerParameterAnnouncement(encoded),
+    {
+      typeName: "Z_NEUTRAL",
+      generated: false,
+      fields,
+      offset: 0,
+      bytesConsumed: encoded.byteLength,
+    },
+  );
+});
+
+test("rejects ambiguous or unrepresentable parameter announcements", () => {
+  assert.throws(
+    () => encodeFastSerializerParameterAnnouncement({
+      typeName: "bad-name",
+      fields: [],
+    }),
+    /type name/u,
+  );
+  assert.throws(
+    () => encodeFastSerializerParameterAnnouncement({
+      typeName: "Z_TYPE",
+      fields: [{ typeCode: FastSerializerTypeCode.Character, name: "TEXT" }],
+    }),
+    /width/u,
+  );
+  assert.throws(
+    () => encodeFastSerializerParameterAnnouncement({
+      typeName: "Z_TYPE",
+      fields: [{ typeCode: FastSerializerTypeCode.Int4, width: 4, name: "NUM" }],
+    }),
+    /must not declare a width/u,
+  );
+  assert.throws(
+    () => encodeFastSerializerParameterAnnouncement({
+      typeName: "Z_TYPE",
+      fields: [{ typeCode: 0xff as FastSerializerTypeCode, name: "FIELD" }],
+    }),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "UNSUPPORTED_TYPE_CODE",
+  );
+  assert.throws(
+    () => encodeFastSerializerParameterAnnouncement({
+      typeName: "Z_TYPE",
+      fields: Array.from({ length: 256 }, (_, index) => ({
+        typeCode: FastSerializerTypeCode.Int4,
+        name: `F${index}`,
+      })),
+    }),
+    /field count/u,
   );
 });
 

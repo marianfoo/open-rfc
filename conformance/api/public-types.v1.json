@@ -252,8 +252,8 @@
     },
     {
       "path": "dist/src/protocol/fast-serializer.d.ts",
-      "bytes": 4117,
-      "sha256": "5ad0a502731437ba29b117b98068c916913615ffe482273cce4412960be266ba"
+      "bytes": 5283,
+      "sha256": "a6eb58f5dea3c5b9c0a906a206d508c6caa54de96d58082e45752c650808763f"
     },
     {
       "path": "dist/src/protocol/gateway.d.ts",
@@ -386,5 +386,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "b93980a4d8a48a9358c306fa59592075bc574282fa36fbf262721d2eac39d6a8"
+  "aggregateSha256": "b828c787b439b95e962af0787fd43d43d1144c4186cc17089f6431e4038a1eb4"
 }

@@ -103,6 +103,15 @@ export interface FastSerializerRecordDecodeOptions {
   readonly maxRecords?: number;
 }
 
+export interface FastSerializerRecordEncodeOptions {
+  readonly maxRecords?: number;
+}
+
+export interface FastSerializerRecordInput {
+  readonly tag: FastSerializerRecordTag;
+  readonly value: Uint8Array;
+}
+
 export interface FastSerializerFieldDescription {
   readonly typeCode: FastSerializerTypeCode;
   readonly width?: number;
@@ -117,10 +126,16 @@ export interface FastSerializerParameterAnnouncement {
   readonly bytesConsumed: number;
 }
 
+export interface FastSerializerParameterAnnouncementInput {
+  readonly typeName: string;
+  readonly fields: readonly FastSerializerFieldDescription[];
+}
+
 const CHARACTER_FLAG = 0x80;
 const STRING_LENGTH_FLAG = 0xc000;
 const PARAMETER_HEADER = 0x44;
 const COMPRESSION_HEADER_LENGTH = 8;
+const MAX_STRING_RECORD_LENGTH = 0x3fff;
 const TYPE_DESCRIPTOR_PREFIX = Buffer.from("\\TYPE=", "ascii");
 
 function configuredInteger(
@@ -266,6 +281,38 @@ export function decodeFastSerializerItems(
       offset += item.bytesConsumed;
     }
     return Object.freeze(items);
+  } finally {
+    snapshot.fill(0);
+  }
+}
+
+/** Encode one exact self-closing item without retaining caller-owned bytes. */
+export function encodeFastSerializerItem(
+  id: number,
+  data: Uint8Array,
+): Buffer {
+  if (!Number.isSafeInteger(id) || id < 0 || id > 0xffff) {
+    throw new FastSerializerProtocolError(
+      "INVALID_ARGUMENT",
+      "fast-serializer item identifier must be an integer in 0..65535",
+      0,
+    );
+  }
+  const snapshot = snapshotUint8Array(data, "fast-serializer item data");
+  try {
+    if (snapshot.byteLength > 0xffff) {
+      throw new FastSerializerProtocolError(
+        "ITEM_LIMIT_EXCEEDED",
+        "fast-serializer item data exceeds the 65535-byte wire limit",
+        0,
+      );
+    }
+    const encoded = Buffer.allocUnsafe(snapshot.byteLength + 6);
+    encoded.writeUInt16BE(id, 0);
+    encoded.writeUInt16BE(snapshot.byteLength, 2);
+    snapshot.copy(encoded, 4);
+    encoded.writeUInt16BE(id, snapshot.byteLength + 4);
+    return encoded;
   } finally {
     snapshot.fill(0);
   }
@@ -490,6 +537,134 @@ export function decodeFastSerializerRecords(
   }
 }
 
+/** Encode one record using only the established tag-specific framing rules. */
+export function encodeFastSerializerRecord(
+  tag: FastSerializerRecordTag,
+  value: Uint8Array = Buffer.alloc(0),
+): Buffer {
+  const snapshot = snapshotUint8Array(value, "fast-serializer record value");
+  try {
+    let headerLength: number;
+    switch (tag) {
+      case FastSerializerRecordTag.End:
+        if (snapshot.byteLength !== 0) {
+          throw new FastSerializerProtocolError(
+            "MALFORMED_RECORD",
+            "fast-serializer end record must not carry a value",
+            0,
+          );
+        }
+        return Buffer.of(tag);
+      case FastSerializerRecordTag.Int4:
+        if (snapshot.byteLength !== 4) {
+          throw new FastSerializerProtocolError(
+            "MALFORMED_RECORD",
+            "fast-serializer INT4 record value must be exactly four bytes",
+            0,
+          );
+        }
+        headerLength = 1;
+        break;
+      case FastSerializerRecordTag.Descriptor:
+        if (snapshot.byteLength === 0 || snapshot.byteLength > 0xff) {
+          throw new FastSerializerProtocolError(
+            "MALFORMED_RECORD",
+            "fast-serializer descriptor value must be 1..255 bytes",
+            0,
+          );
+        }
+        headerLength = 2;
+        break;
+      case FastSerializerRecordTag.Character:
+        if (snapshot.byteLength === 0 || snapshot.byteLength > 0xff) {
+          throw new FastSerializerProtocolError(
+            "MALFORMED_RECORD",
+            "fast-serializer character value must be 1..255 bytes",
+            0,
+          );
+        }
+        headerLength = 3;
+        break;
+      case FastSerializerRecordTag.Padded:
+        if (snapshot.byteLength === 0 || snapshot.byteLength > 0xffff) {
+          throw new FastSerializerProtocolError(
+            "MALFORMED_RECORD",
+            "fast-serializer padded value must be 1..65535 bytes",
+            0,
+          );
+        }
+        headerLength = 3;
+        break;
+      case FastSerializerRecordTag.String:
+        if (
+          snapshot.byteLength === 0 ||
+          snapshot.byteLength > MAX_STRING_RECORD_LENGTH
+        ) {
+          throw new FastSerializerProtocolError(
+            "MALFORMED_RECORD",
+            "fast-serializer string value must be 1..16383 bytes",
+            0,
+          );
+        }
+        headerLength = 5;
+        break;
+      default:
+        throw new FastSerializerProtocolError(
+          "UNSUPPORTED_RECORD_TAG",
+          `fast-serializer record tag 0x${Number(tag).toString(16).padStart(2, "0")} is unsupported`,
+          0,
+        );
+    }
+
+    const encoded = Buffer.allocUnsafe(headerLength + snapshot.byteLength);
+    encoded[0] = tag;
+    switch (tag) {
+      case FastSerializerRecordTag.Descriptor:
+        encoded[1] = snapshot.byteLength;
+        break;
+      case FastSerializerRecordTag.Character:
+        encoded[1] = snapshot.byteLength;
+        encoded[2] = CHARACTER_FLAG;
+        break;
+      case FastSerializerRecordTag.Padded:
+        encoded.writeUInt16BE(snapshot.byteLength, 1);
+        break;
+      case FastSerializerRecordTag.String:
+        encoded.writeUInt16LE(STRING_LENGTH_FLAG | snapshot.byteLength, 1);
+        encoded.writeUInt16LE(snapshot.byteLength, 3);
+        break;
+      default:
+        break;
+    }
+    snapshot.copy(encoded, headerLength);
+    return encoded;
+  } finally {
+    snapshot.fill(0);
+  }
+}
+
+/** Encode an exact contiguous record stream with a bounded record count. */
+export function encodeFastSerializerRecords(
+  records: readonly FastSerializerRecordInput[],
+  options: FastSerializerRecordEncodeOptions = {},
+): Buffer {
+  const maxRecords = configuredInteger(
+    options.maxRecords,
+    DEFAULT_MAX_FAST_SERIALIZER_RECORDS,
+    "maxRecords",
+    DEFAULT_MAX_FAST_SERIALIZER_RECORDS,
+  );
+  if (records.length > maxRecords) {
+    throw new FastSerializerProtocolError(
+      "RECORD_LIMIT_EXCEEDED",
+      `fast-serializer record count exceeds configured limit ${maxRecords}`,
+      0,
+    );
+  }
+  return Buffer.concat(records.map(({ tag, value }) =>
+    encodeFastSerializerRecord(tag, value)));
+}
+
 export function fastSerializerTypeName(
   record: FastSerializerRecord,
 ): string | undefined {
@@ -630,4 +805,128 @@ export function decodeFastSerializerParameterAnnouncement(
   } finally {
     snapshot.fill(0);
   }
+}
+
+/** Encode one strict field-description announcement from neutral metadata. */
+export function encodeFastSerializerParameterAnnouncement(
+  announcement: FastSerializerParameterAnnouncementInput,
+): Buffer {
+  const typeNameText = announcement.typeName;
+  const fields = announcement.fields;
+  if (typeof typeNameText !== "string") {
+    throw new FastSerializerProtocolError(
+      "MALFORMED_PARAMETER",
+      "fast-serializer type name must be a plain protocol identifier",
+      0,
+    );
+  }
+  if (!Array.isArray(fields)) {
+    throw new FastSerializerProtocolError(
+      "MALFORMED_PARAMETER",
+      "fast-serializer fields must be an array",
+      0,
+    );
+  }
+  const typeName = Buffer.from(typeNameText, "ascii");
+  if (
+    typeName.byteLength !== typeNameText.length ||
+    !isPlainName(typeName, true)
+  ) {
+    throw new FastSerializerProtocolError(
+      "MALFORMED_PARAMETER",
+      "fast-serializer type name must be a plain protocol identifier",
+      0,
+    );
+  }
+  const descriptorLength =
+    TYPE_DESCRIPTOR_PREFIX.byteLength + typeName.byteLength;
+  if (descriptorLength > 0xff) {
+    throw new FastSerializerProtocolError(
+      "MALFORMED_PARAMETER",
+      "fast-serializer type name exceeds the descriptor wire limit",
+      0,
+    );
+  }
+  if (fields.length > 0xff) {
+    throw new FastSerializerProtocolError(
+      "MALFORMED_PARAMETER",
+      "fast-serializer field count exceeds the 255-field wire limit",
+      0,
+    );
+  }
+
+  const parts: Buffer[] = [
+    Buffer.from([PARAMETER_HEADER, fields.length]),
+    encodeFastSerializerRecord(
+      FastSerializerRecordTag.Descriptor,
+      Buffer.concat([TYPE_DESCRIPTOR_PREFIX, typeName]),
+    ),
+  ];
+  for (const field of fields) {
+    const typeCode = field.typeCode;
+    const width = field.width;
+    const fieldName = field.name;
+    if (!knownTypeCode(typeCode)) {
+      throw new FastSerializerProtocolError(
+        "UNSUPPORTED_TYPE_CODE",
+        `fast-serializer type code 0x${Number(typeCode).toString(16).padStart(2, "0")} is unsupported`,
+        0,
+      );
+    }
+    if (typeof fieldName !== "string") {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_PARAMETER",
+        "fast-serializer field name must be a 1..255-byte plain protocol identifier",
+        0,
+      );
+    }
+    const name = Buffer.from(fieldName, "ascii");
+    if (
+      name.byteLength !== fieldName.length ||
+      name.byteLength > 0xff ||
+      !isPlainName(name)
+    ) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_PARAMETER",
+        "fast-serializer field name must be a 1..255-byte plain protocol identifier",
+        0,
+      );
+    }
+    const widthParameterized =
+      typeCode === FastSerializerTypeCode.Character ||
+      typeCode === FastSerializerTypeCode.Raw;
+    if (widthParameterized) {
+      if (
+        width === undefined ||
+        !Number.isSafeInteger(width) ||
+        width < 0 ||
+        width > 0xffff
+      ) {
+        throw new FastSerializerProtocolError(
+          "MALFORMED_PARAMETER",
+          "fast-serializer character and raw fields require a width in 0..65535",
+          0,
+        );
+      }
+      const encoded = Buffer.allocUnsafe(name.byteLength + 4);
+      encoded[0] = typeCode;
+      encoded.writeUInt16LE(width, 1);
+      encoded[3] = name.byteLength;
+      name.copy(encoded, 4);
+      parts.push(encoded);
+      continue;
+    }
+    if (width !== undefined) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_PARAMETER",
+        "fast-serializer fixed-width field type must not declare a width",
+        0,
+      );
+    }
+    parts.push(Buffer.concat([
+      Buffer.from([typeCode, name.byteLength]),
+      name,
+    ]));
+  }
+  return Buffer.concat(parts);
 }
