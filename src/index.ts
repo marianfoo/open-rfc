@@ -96,4 +96,5 @@ export {
   type RfcCallbackResponse,
   type RfcCallbackTable,
   type RfcCallbackXrfcParameter,
+  type RfcCallbackXrfcValue,
 } from "./protocol/rfc-callback.js";

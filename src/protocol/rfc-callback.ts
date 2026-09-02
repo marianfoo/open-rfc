@@ -2,6 +2,7 @@ import { types as nodeUtilTypes } from "node:util";
 
 import {
   CpicTag,
+  CLASSIC_XRFC_XML_CHUNK_LENGTH,
   DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH,
   decodeCpicFieldChainPrefix,
   encodeCpicFieldChain,
@@ -36,10 +37,13 @@ export interface RfcCallbackTable {
   readonly rows: readonly Buffer[];
 }
 
-export interface RfcCallbackXrfcParameter {
+export interface RfcCallbackXrfcValue {
   /** Canonical ABAP parameter name decoded from the xRFC XML root. */
   readonly name: string;
   readonly value: Buffer;
+}
+
+export interface RfcCallbackXrfcParameter extends RfcCallbackXrfcValue {
   readonly chunkCount: number;
 }
 
@@ -57,7 +61,8 @@ export interface RfcCallbackRequest {
 export interface RfcCallbackResponse {
   readonly exports?: readonly RfcCallbackNamedValue[];
   readonly tables?: readonly RfcCallbackTable[];
-  /** Mutually exclusive with exports and tables. */
+  readonly xrfcParameters?: readonly RfcCallbackXrfcValue[];
+  /** Mutually exclusive with exports, tables, and xRFC parameters. */
   readonly exception?: string;
 }
 
@@ -496,6 +501,45 @@ function snapshotTables(
   }));
 }
 
+function snapshotXrfcValues(
+  values: readonly RfcCallbackXrfcValue[] | undefined,
+  budget: { retainedBytes: bigint },
+): readonly RfcCallbackXrfcValue[] {
+  if (values === undefined) return Object.freeze([]);
+  if (!Array.isArray(values)) {
+    throw new TypeError("callback response xRFC parameters must be an array");
+  }
+  const names = new Set<string>();
+  return Object.freeze(Array.from(values, (entry, index) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new TypeError(
+        `callback response xRFC parameters[${index}] must be an object`,
+      );
+    }
+    const name = callbackName(
+      entry.name,
+      `callback response xRFC parameters[${index}].name`,
+      30,
+    );
+    if (names.has(name)) {
+      throw new Error(`callback response repeats xRFC parameter ${name}`);
+    }
+    names.add(name);
+    const value = boundedCallbackSnapshot(
+      entry.value,
+      `callback response xRFC parameter ${name} value`,
+      budget,
+    );
+    const rootName = decodeRecursiveXrfcParameterName(value);
+    if (rootName !== name) {
+      throw new Error(
+        `callback response xRFC parameter ${name} has root ${rootName}`,
+      );
+    }
+    return Object.freeze({ name, value });
+  }));
+}
+
 function encodeCallbackEnvelope(fields: readonly CpicField[]): Buffer {
   return Buffer.concat([
     CUT_RESPONSE_PREFIX,
@@ -517,7 +561,7 @@ export function encodeCpicRfcCallbackResponse(
     if (!("value" in exception) || typeof exception.value !== "string") {
       throw new TypeError("callback response exception must be an own string value");
     }
-    for (const key of ["exports", "tables"] as const) {
+    for (const key of ["exports", "tables", "xrfcParameters"] as const) {
       const conflicting = Object.getOwnPropertyDescriptor(response, key);
       if (
         conflicting !== undefined &&
@@ -537,12 +581,19 @@ export function encodeCpicRfcCallbackResponse(
     budget,
   );
   const tables = snapshotTables(response.tables, budget);
+  const xrfcParameters = snapshotXrfcValues(response.xrfcParameters, budget);
   const names = new Set(exports.map((entry) => entry.name));
   for (const table of tables) {
     if (names.has(table.name)) {
       throw new Error(`callback response repeats parameter ${table.name}`);
     }
     names.add(table.name);
+  }
+  for (const parameter of xrfcParameters) {
+    if (names.has(parameter.name)) {
+      throw new Error(`callback response repeats parameter ${parameter.name}`);
+    }
+    names.add(parameter.name);
   }
   if (requestedOutputs !== undefined) {
     if (!Array.isArray(requestedOutputs)) {
@@ -581,6 +632,26 @@ export function encodeCpicRfcCallbackResponse(
       { tag: CpicTag.TableHeader, value: header },
       ...table.rows.map((row) => ({ tag: CpicTag.TableCompr, value: row })),
     );
+  }
+  for (const parameter of xrfcParameters) {
+    fields.push({ tag: CpicTag.XRfcParameter, value: Buffer.alloc(0) });
+    for (
+      let offset = 0;
+      offset < parameter.value.byteLength;
+      offset += CLASSIC_XRFC_XML_CHUNK_LENGTH
+    ) {
+      fields.push({
+        tag: CpicTag.XRfcData,
+        value: parameter.value.subarray(
+          offset,
+          Math.min(
+            offset + CLASSIC_XRFC_XML_CHUNK_LENGTH,
+            parameter.value.byteLength,
+          ),
+        ),
+      });
+    }
+    fields.push({ tag: CpicTag.XRfcParameter, value: Buffer.alloc(0) });
   }
   fields.push({ tag: CpicTag.End, value: Buffer.alloc(0) });
   return encodeCallbackEnvelope(fields);
