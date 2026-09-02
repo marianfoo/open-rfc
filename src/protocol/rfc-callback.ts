@@ -126,6 +126,7 @@ function callbackUint32(value: number, path: string): number {
 function boundedCallbackSnapshot(
   value: Uint8Array,
   path: string,
+  budget?: { retainedBytes: bigint },
 ): Buffer {
   if (!(value instanceof Uint8Array)) {
     throw new TypeError(`${path} must be a Uint8Array`);
@@ -136,7 +137,31 @@ function boundedCallbackSnapshot(
       `${path} exceeds ${DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH} bytes`,
     );
   }
+  if (budget !== undefined) {
+    budget.retainedBytes += BigInt(byteLength);
+    if (
+      budget.retainedBytes > BigInt(DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH)
+    ) {
+      throw new RangeError(
+        `callback response value bytes exceed ` +
+          `${DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH}`,
+      );
+    }
+  }
   return snapshotUint8Array(value, path, byteLength);
+}
+
+function reserveCallbackResponseBytes(
+  budget: { retainedBytes: bigint },
+  byteLength: bigint,
+): void {
+  budget.retainedBytes += byteLength;
+  if (budget.retainedBytes > BigInt(DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH)) {
+    throw new RangeError(
+      `callback response value bytes exceed ` +
+        `${DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH}`,
+    );
+  }
 }
 
 function exactCallbackTrailer(
@@ -385,11 +410,12 @@ export function decodeCpicRfcCallbackRequest(
 function snapshotNamedValues(
   values: readonly RfcCallbackNamedValue[] | undefined,
   path: string,
+  budget: { retainedBytes: bigint },
 ): readonly RfcCallbackNamedValue[] {
   if (values === undefined) return Object.freeze([]);
   if (!Array.isArray(values)) throw new TypeError(`${path} must be an array`);
   const names = new Set<string>();
-  return Object.freeze(values.map((entry, index) => {
+  return Object.freeze(Array.from(values, (entry, index) => {
     if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
       throw new TypeError(`${path}[${index}] must be an object`);
     }
@@ -398,20 +424,25 @@ function snapshotNamedValues(
     names.add(name);
     return Object.freeze({
       name,
-      value: boundedCallbackSnapshot(entry.value, `${path}[${index}].value`),
+      value: boundedCallbackSnapshot(
+        entry.value,
+        `${path}[${index}].value`,
+        budget,
+      ),
     });
   }));
 }
 
 function snapshotTables(
   tables: readonly RfcCallbackTable[] | undefined,
+  budget: { retainedBytes: bigint },
 ): readonly RfcCallbackTable[] {
   if (tables === undefined) return Object.freeze([]);
   if (!Array.isArray(tables)) {
     throw new TypeError("callback response tables must be an array");
   }
   const names = new Set<string>();
-  return Object.freeze(tables.map((table, tableIndex) => {
+  return Object.freeze(Array.from(tables, (table, tableIndex) => {
     if (typeof table !== "object" || table === null || Array.isArray(table)) {
       throw new TypeError(`callback response tables[${tableIndex}] must be an object`);
     }
@@ -430,7 +461,16 @@ function snapshotTables(
       throw new TypeError(`callback response table ${name} rows must be an array`);
     }
     callbackUint32(table.rows.length, `callback response table ${name} row count`);
-    const rows = table.rows.map((row: Uint8Array, rowIndex: number) => {
+    if (table.rows.length !== 0 && rowByteLength === 0) {
+      throw new RangeError(
+        `callback response table ${name} cannot contain zero-width rows`,
+      );
+    }
+    reserveCallbackResponseBytes(
+      budget,
+      BigInt(rowByteLength) * BigInt(table.rows.length),
+    );
+    const rows = Array.from(table.rows, (row: Uint8Array, rowIndex: number) => {
       const snapshot = boundedCallbackSnapshot(
         row,
         `callback response table ${name} row ${rowIndex}`,
@@ -479,8 +519,13 @@ export function encodeCpicRfcCallbackResponse(
     }
     return encodeCpicRfcCallbackException(exception.value);
   }
-  const exports = snapshotNamedValues(response.exports, "callback response exports");
-  const tables = snapshotTables(response.tables);
+  const budget = { retainedBytes: 0n };
+  const exports = snapshotNamedValues(
+    response.exports,
+    "callback response exports",
+    budget,
+  );
+  const tables = snapshotTables(response.tables, budget);
   const names = new Set(exports.map((entry) => entry.name));
   for (const table of tables) {
     if (names.has(table.name)) {

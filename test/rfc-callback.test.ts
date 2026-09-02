@@ -181,4 +181,36 @@ test("rejects malformed callback grammar and unsafe handler tables", () => {
   const handler = () => ({ exports: [] });
   const snapshotted = snapshotRfcCallbackHandlers({ Z_CALLBACK: handler });
   assert.equal(snapshotted?.get("Z_CALLBACK"), handler);
+
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      tables: [{ name: "ITEMS", rowByteLength: 0, rows: [Buffer.alloc(0)] }],
+    }),
+    /zero-width rows/u,
+  );
+
+  let oversizedRowRead = false;
+  const oversizedRows = [Buffer.alloc(1)];
+  Object.defineProperty(oversizedRows, 0, {
+    get() {
+      oversizedRowRead = true;
+      return Buffer.alloc(1);
+    },
+  });
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      tables: [{
+        name: "ITEMS",
+        rowByteLength: 0xffff_ffff,
+        rows: oversizedRows,
+      }],
+    }),
+    /response value bytes exceed/u,
+  );
+  assert.equal(oversizedRowRead, false);
+
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({ exports: Array(1) }),
+    /must be an object/u,
+  );
 });
