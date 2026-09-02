@@ -1,6 +1,6 @@
 {
   "name": "open-rfc",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "SDK-free TypeScript client for SAP classic RFC with node-rfc compatibility facades",
   "private": false,
   "license": "Apache-2.0",
