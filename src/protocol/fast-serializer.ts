@@ -131,12 +131,30 @@ export interface FastSerializerParameterAnnouncementInput {
   readonly fields: readonly FastSerializerFieldDescription[];
 }
 
+export interface FastSerializerScalarParameter {
+  readonly typeName: string;
+  readonly generated: boolean;
+  readonly typeCode: FastSerializerTypeCode;
+  readonly width?: number;
+  readonly value: Buffer;
+  readonly bytesConsumed: number;
+}
+
+export interface FastSerializerScalarParameterInput {
+  readonly typeName: string;
+  readonly typeCode: FastSerializerTypeCode;
+  readonly width?: number;
+  readonly value: Uint8Array;
+}
+
 const CHARACTER_FLAG = 0x80;
 const STRING_LENGTH_FLAG = 0xc000;
 const PARAMETER_HEADER = 0x44;
 const COMPRESSION_HEADER_LENGTH = 8;
 const MAX_STRING_RECORD_LENGTH = 0x3fff;
+const MAX_LITERAL_SCALAR_VALUE_LENGTH = 512;
 const TYPE_DESCRIPTOR_PREFIX = Buffer.from("\\TYPE=", "ascii");
+const SCALAR_FIELD_NAME = Buffer.from("TABLE_LINE", "ascii");
 
 function configuredInteger(
   value: number | undefined,
@@ -929,4 +947,220 @@ export function encodeFastSerializerParameterAnnouncement(
     ]));
   }
   return Buffer.concat(parts);
+}
+
+interface FastSerializerScalarRule {
+  readonly valueTag: FastSerializerRecordTag;
+  readonly terminalEnd: boolean;
+}
+
+function scalarRule(
+  typeCode: FastSerializerTypeCode,
+): FastSerializerScalarRule | undefined {
+  switch (typeCode) {
+    case FastSerializerTypeCode.Int4:
+      return {
+        valueTag: FastSerializerRecordTag.Int4,
+        terminalEnd: true,
+      };
+    case FastSerializerTypeCode.Character:
+      return {
+        valueTag: FastSerializerRecordTag.Character,
+        terminalEnd: true,
+      };
+    case FastSerializerTypeCode.String:
+      return {
+        valueTag: FastSerializerRecordTag.String,
+        terminalEnd: false,
+      };
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Decode one exact elementary parameter block without scanning or accepting
+ * surrounding bytes. Only the three value grammars established end to end are
+ * admitted; composite fields and normalized scalar forms remain separate work.
+ */
+export function decodeFastSerializerScalarParameter(
+  input: Uint8Array,
+): FastSerializerScalarParameter {
+  const snapshot = snapshotUint8Array(
+    input,
+    "fast-serializer scalar parameter",
+  );
+  let retainedValue: Buffer | undefined;
+  let succeeded = false;
+  try {
+    let cursor = 0;
+    const descriptor = decodeRecordFromSnapshot(snapshot, cursor);
+    const typeName = fastSerializerTypeName(descriptor);
+    if (typeName === undefined) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_PARAMETER",
+        "fast-serializer scalar parameter lacks a valid type descriptor",
+        cursor,
+      );
+    }
+    cursor += descriptor.bytesConsumed;
+
+    requireBytes(snapshot, cursor, 1, "scalar parameter type code");
+    const typeCode = snapshot[cursor]! as FastSerializerTypeCode;
+    cursor += 1;
+    const rule = scalarRule(typeCode);
+    if (rule === undefined) {
+      throw new FastSerializerProtocolError(
+        "UNSUPPORTED_TYPE_CODE",
+        `fast-serializer type code 0x${Number(typeCode).toString(16).padStart(2, "0")} is unsupported for an elementary parameter`,
+        cursor - 1,
+      );
+    }
+
+    let width: number | undefined;
+    if (typeCode === FastSerializerTypeCode.Character) {
+      requireBytes(snapshot, cursor, 2, "scalar parameter character width");
+      width = snapshot.readUInt16LE(cursor);
+      if (width === 0 || width % 2 !== 0) {
+        throw new FastSerializerProtocolError(
+          "MALFORMED_PARAMETER",
+          "fast-serializer scalar character width must be a positive even byte count",
+          cursor,
+        );
+      }
+      cursor += 2;
+    }
+
+    requireBytes(snapshot, cursor, 1, "scalar parameter field-name length");
+    const nameLength = snapshot[cursor]!;
+    cursor += 1;
+    requireBytes(snapshot, cursor, nameLength, "scalar parameter field name");
+    const fieldName = snapshot.subarray(cursor, cursor + nameLength);
+    if (!fieldName.equals(SCALAR_FIELD_NAME)) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_PARAMETER",
+        "fast-serializer elementary parameter field must be TABLE_LINE",
+        cursor,
+      );
+    }
+    cursor += nameLength;
+
+    const value = decodeRecordFromSnapshot(snapshot, cursor);
+    retainedValue = value.value;
+    if (value.tag !== rule.valueTag) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_PARAMETER",
+        "fast-serializer scalar value record does not match its type code",
+        cursor,
+      );
+    }
+    if (value.value.byteLength > MAX_LITERAL_SCALAR_VALUE_LENGTH) {
+      throw new FastSerializerProtocolError(
+        "COMPRESSION_LIMIT_EXCEEDED",
+        "fast-serializer scalar value requires compression support",
+        cursor,
+      );
+    }
+    cursor += value.bytesConsumed;
+
+    if (rule.terminalEnd) {
+      const terminal = decodeRecordFromSnapshot(snapshot, cursor);
+      if (terminal.tag !== FastSerializerRecordTag.End) {
+        throw new FastSerializerProtocolError(
+          "MALFORMED_PARAMETER",
+          "fast-serializer scalar parameter lacks its terminal end record",
+          cursor,
+        );
+      }
+      cursor += terminal.bytesConsumed;
+    }
+    if (cursor !== snapshot.byteLength) {
+      throw new FastSerializerProtocolError(
+        "MALFORMED_PARAMETER",
+        "fast-serializer scalar parameter has trailing bytes",
+        cursor,
+      );
+    }
+
+    const result = Object.freeze({
+      typeName,
+      generated: typeName.startsWith("%_T"),
+      typeCode,
+      ...(width === undefined ? {} : { width }),
+      value: value.value,
+      bytesConsumed: cursor,
+    });
+    succeeded = true;
+    return result;
+  } finally {
+    if (!succeeded) retainedValue?.fill(0);
+    snapshot.fill(0);
+  }
+}
+
+/** Encode one exact elementary INT4, CHAR, or STRING parameter block. */
+export function encodeFastSerializerScalarParameter(
+  parameter: FastSerializerScalarParameterInput,
+): Buffer {
+  const typeName = parameter.typeName;
+  const typeCode = parameter.typeCode;
+  const width = parameter.width;
+  const value = parameter.value;
+  const rule = scalarRule(typeCode);
+  if (rule === undefined) {
+    throw new FastSerializerProtocolError(
+      "UNSUPPORTED_TYPE_CODE",
+      `fast-serializer type code 0x${Number(typeCode).toString(16).padStart(2, "0")} is unsupported for an elementary parameter`,
+      0,
+    );
+  }
+  if (
+    typeCode === FastSerializerTypeCode.Character &&
+    (width === undefined || width === 0 || width % 2 !== 0)
+  ) {
+    throw new FastSerializerProtocolError(
+      "MALFORMED_PARAMETER",
+      "fast-serializer scalar character width must be a positive even byte count",
+      0,
+    );
+  }
+
+  const valueSnapshot = snapshotUint8Array(
+    value,
+    "fast-serializer scalar value",
+  );
+  if (valueSnapshot.byteLength > MAX_LITERAL_SCALAR_VALUE_LENGTH) {
+    valueSnapshot.fill(0);
+    throw new FastSerializerProtocolError(
+      "COMPRESSION_LIMIT_EXCEEDED",
+      "fast-serializer scalar value requires compression support",
+      0,
+    );
+  }
+
+  let announcement: Buffer | undefined;
+  let encodedValue: Buffer | undefined;
+  try {
+    announcement = encodeFastSerializerParameterAnnouncement({
+      typeName,
+      fields: [{
+        typeCode,
+        ...(width === undefined ? {} : { width }),
+        name: SCALAR_FIELD_NAME.toString("ascii"),
+      }],
+    });
+    encodedValue = encodeFastSerializerRecord(rule.valueTag, valueSnapshot);
+    const terminal = rule.terminalEnd
+      ? Buffer.of(FastSerializerRecordTag.End)
+      : Buffer.alloc(0);
+    return Buffer.concat([
+      announcement.subarray(2),
+      encodedValue,
+      terminal,
+    ]);
+  } finally {
+    valueSnapshot.fill(0);
+    announcement?.fill(0);
+    encodedValue?.fill(0);
+  }
 }

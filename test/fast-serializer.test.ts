@@ -12,10 +12,12 @@ import {
   decodeFastSerializerParameterAnnouncement,
   decodeFastSerializerRecord,
   decodeFastSerializerRecords,
+  decodeFastSerializerScalarParameter,
   encodeFastSerializerItem,
   encodeFastSerializerParameterAnnouncement,
   encodeFastSerializerRecord,
   encodeFastSerializerRecords,
+  encodeFastSerializerScalarParameter,
   fastSerializerTypeName,
 } from "../src/protocol/fast-serializer.js";
 
@@ -421,6 +423,198 @@ test("rejects ambiguous or unrepresentable parameter announcements", () => {
   );
 });
 
+test("encodes and decodes the three established scalar parameter blocks", () => {
+  const tableLine = Buffer.from("TABLE_LINE", "ascii");
+  const cases = [
+    {
+      input: {
+        typeName: "I",
+        typeCode: FastSerializerTypeCode.Int4,
+        value: Buffer.from([0x2a, 0x00, 0x00, 0x00]),
+      },
+      encoded: Buffer.concat([
+        descriptor("I"),
+        Buffer.from([FastSerializerTypeCode.Int4, tableLine.byteLength]),
+        tableLine,
+        Buffer.from([
+          FastSerializerRecordTag.Int4,
+          0x2a, 0x00, 0x00, 0x00,
+          FastSerializerRecordTag.End,
+        ]),
+      ]),
+    },
+    {
+      input: {
+        typeName: "CHAR30",
+        typeCode: FastSerializerTypeCode.Character,
+        width: 60,
+        value: Buffer.from("ABCD", "ascii"),
+      },
+      encoded: Buffer.concat([
+        descriptor("CHAR30"),
+        Buffer.from([
+          FastSerializerTypeCode.Character,
+          60, 0,
+          tableLine.byteLength,
+        ]),
+        tableLine,
+        Buffer.from([
+          FastSerializerRecordTag.Character,
+          4, 0x80,
+          ...Buffer.from("ABCD", "ascii"),
+          FastSerializerRecordTag.End,
+        ]),
+      ]),
+    },
+    {
+      input: {
+        typeName: "STRING",
+        typeCode: FastSerializerTypeCode.String,
+        value: Buffer.from("question", "ascii"),
+      },
+      encoded: Buffer.concat([
+        descriptor("STRING"),
+        Buffer.from([FastSerializerTypeCode.String, tableLine.byteLength]),
+        tableLine,
+        Buffer.from([
+          FastSerializerRecordTag.String,
+          8, 0xc0, 8, 0,
+          ...Buffer.from("question", "ascii"),
+        ]),
+      ]),
+    },
+  ] as const;
+
+  for (const { input, encoded } of cases) {
+    const actual = encodeFastSerializerScalarParameter(input);
+    assert.deepEqual(actual, encoded);
+    assert.deepEqual(decodeFastSerializerScalarParameter(actual), {
+      typeName: input.typeName,
+      generated: false,
+      typeCode: input.typeCode,
+      ...(input.typeCode === FastSerializerTypeCode.Character
+        ? { width: input.width }
+        : {}),
+      value: input.value,
+      bytesConsumed: actual.byteLength,
+    });
+  }
+});
+
+test("recognizes generated scalar types and snapshots their value bytes", () => {
+  const value = Buffer.from("VALUE", "ascii");
+  const encoded = encodeFastSerializerScalarParameter({
+    typeName: "%_T00001",
+    typeCode: FastSerializerTypeCode.Character,
+    width: 10,
+    value,
+  });
+  value.fill(0);
+
+  const decoded = decodeFastSerializerScalarParameter(encoded);
+  assert.equal(decoded.generated, true);
+  assert.equal(decoded.value.toString("ascii"), "VALUE");
+});
+
+test("rejects scalar blocks whose metadata, value, or terminator is ambiguous", () => {
+  const tableLine = Buffer.from("TABLE_LINE", "ascii");
+  const intPrefix = Buffer.concat([
+    descriptor("I"),
+    Buffer.from([FastSerializerTypeCode.Int4, tableLine.byteLength]),
+    tableLine,
+  ]);
+  const intValue = Buffer.from([
+    FastSerializerRecordTag.Int4,
+    0x2a, 0x00, 0x00, 0x00,
+  ]);
+  const malformed = [
+    Buffer.concat([Buffer.from([0x44, 1]), intPrefix, intValue]),
+    Buffer.concat([
+      descriptor("I"),
+      Buffer.from([FastSerializerTypeCode.Int4, 5]),
+      Buffer.from("VALUE"),
+      intValue,
+      Buffer.of(FastSerializerRecordTag.End),
+    ]),
+    Buffer.concat([
+      intPrefix,
+      encodeFastSerializerRecord(
+        FastSerializerRecordTag.Character,
+        Buffer.from("42"),
+      ),
+      Buffer.of(FastSerializerRecordTag.End),
+    ]),
+    Buffer.concat([intPrefix, intValue]),
+    Buffer.concat([
+      descriptor("STRING"),
+      Buffer.from([FastSerializerTypeCode.String, tableLine.byteLength]),
+      tableLine,
+      encodeFastSerializerRecord(
+        FastSerializerRecordTag.String,
+        Buffer.from("question"),
+      ),
+      Buffer.of(FastSerializerRecordTag.End),
+    ]),
+  ];
+  for (const encoded of malformed) {
+    assert.throws(
+      () => decodeFastSerializerScalarParameter(encoded),
+      (error: unknown) => error instanceof FastSerializerProtocolError,
+    );
+  }
+
+  assert.throws(
+    () => encodeFastSerializerScalarParameter({
+      typeName: "RAW",
+      typeCode: FastSerializerTypeCode.Raw,
+      width: 4,
+      value: Buffer.alloc(4),
+    }),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "UNSUPPORTED_TYPE_CODE",
+  );
+  assert.throws(
+    () => encodeFastSerializerScalarParameter({
+      typeName: "I",
+      typeCode: FastSerializerTypeCode.Int4,
+      width: 4,
+      value: Buffer.alloc(4),
+    }),
+    /must not declare a width/u,
+  );
+  for (const width of [0, 3]) {
+    assert.throws(
+      () => encodeFastSerializerScalarParameter({
+        typeName: "CHAR2",
+        typeCode: FastSerializerTypeCode.Character,
+        width,
+        value: Buffer.from("A"),
+      }),
+      /positive even byte count/u,
+    );
+  }
+  assert.throws(
+    () => encodeFastSerializerScalarParameter({
+      typeName: "STRING",
+      typeCode: FastSerializerTypeCode.String,
+      value: Buffer.alloc(513, 0x41),
+    }),
+    (error: unknown) =>
+      error instanceof FastSerializerProtocolError &&
+      error.code === "COMPRESSION_LIMIT_EXCEEDED",
+  );
+  const literalBoundary = encodeFastSerializerScalarParameter({
+    typeName: "STRING",
+    typeCode: FastSerializerTypeCode.String,
+    value: Buffer.alloc(512, 0x41),
+  });
+  assert.equal(
+    decodeFastSerializerScalarParameter(literalBoundary).value.byteLength,
+    512,
+  );
+});
+
 test("arbitrary short protocol inputs terminate inside fixed limits", () => {
   let state = 0x4653_4552;
   const random = (): number => {
@@ -439,6 +633,7 @@ test("arbitrary short protocol inputs terminate inside fixed limits", () => {
       () => decodeFastSerializerItems(input, { maxItems: 8, maxItemLength: 96 }),
       () => decodeFastSerializerRecords(input, { maxRecords: 32 }),
       () => decodeFastSerializerParameterAnnouncement(input),
+      () => decodeFastSerializerScalarParameter(input),
     ]) {
       try {
         decode();

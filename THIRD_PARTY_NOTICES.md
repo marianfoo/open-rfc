@@ -78,9 +78,12 @@ resynchronization, reject unknown tags and field types, copy exposed byte
 values, and clear temporary buffers on failure. Record encoding adapts the
 upstream `EncodeRecord` framing while rejecting rather than truncating values;
 the strict item, STRING, record-stream, and field-announcement encoders are
-TypeScript additions built from the same decoded grammar. The accompanying
-tests were authored for this project from neutral synthetic values; upstream
-packet-capture fixtures are not redistributed.
+TypeScript additions built from the same decoded grammar. The exact elementary
+parameter-block codec adapts the upstream `DecodeTypedFields` grammar for the
+three established INT4, CHAR, and STRING forms, replacing its bounded scan with
+a contiguous fail-closed parser and adding the corresponding encoder. The
+accompanying tests were authored for this project from neutral synthetic
+values; upstream packet-capture fixtures are not redistributed.
 
 The public repository and npm package include a copy of the Apache License,
 Version 2.0 in their root `LICENSE` file. Unless required by applicable law or
