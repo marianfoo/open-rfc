@@ -86,8 +86,9 @@ graph, omit the option and keep the fail-closed result.
 ## Connection parameters
 
 Use either lowercase keys or their uppercase forms, not both. The supported
-first-beta direct route uses named-user authentication, so `user` and `passwd`
-are required together. The message-server fields below document an unsupported
+first-beta direct route uses password authentication. Its MYSAPSSO2 preview
+requires `user` with `mysapsso2` instead of `passwd`; the two credentials cannot
+be combined. The message-server fields below document an unsupported
 preview and do not make that route supported. Connectivity principal
 propagation, SNC, and WebSocket business invocation are not implied by accepting
 similarly named configuration elsewhere; unsupported provider capabilities fail
@@ -99,7 +100,8 @@ closed.
 |---|---|
 | `ashost` | Required application-server name. It is also the gateway host unless `gwhost` is supplied. |
 | `client` | Required SAP client; one to three digits, normalized to three. |
-| `user`, `passwd` | Required together; non-empty string or number values. |
+| `user`, `passwd` | Live-qualified beta credential pair; both are required together when password authentication is selected. |
+| `user`, `mysapsso2` | Preview alternative; both are required together and `passwd` must be absent. The bounded ticket text may be percent-escaped or use SAP's cookie `!` substitution for `/`; it is snapshotted and hidden from JSON/inspection. |
 | `sysnr` | Optional one- or two-digit system number; defaults to `"00"`. |
 | `gwhost` | Optional gateway TCP host while `ashost` remains the CPIC application-server identity. |
 | `gwserv` / `port` | Optional gateway service or TCP port. Default is `33NN` from `sysnr`; `gwserv` also accepts `sapgwNN`. |
@@ -116,7 +118,7 @@ closed.
 | `connectivity_socks5_access_token` | Required raw Connectivity access token without a `Bearer ` prefix. It is snapshotted and hidden from JSON/inspection. |
 | `connectivity_socks5_location_id` | Optional unencoded Cloud Connector location ID. |
 
-These fields select only a direct named-user route. The caller owns OAuth token
+These fields select only a direct explicit-user route. The caller owns OAuth token
 acquisition and refresh. The low-level SOCKS5 transport is internal and is not
 exported from the package root.
 
@@ -134,7 +136,8 @@ otherwise keep it disabled and use compact requests.
 | `r3name` / `sysid` | One is required and must be a three-character SAP system ID; `r3name` takes precedence. |
 | `group` | Required message-server logon group. |
 | `client` | Required SAP client. |
-| `user`, `passwd` | Required together for the selected application-server logon. |
+| `user`, `passwd` | Required together for password logon to the selected application server. |
+| `user`, `mysapsso2` | Preview alternative ticket logon; `passwd` must be absent. |
 | `msserv` | Optional TCP service or port. Without it, the resolver uses `sapms<SID>`. |
 | `lang` | Optional uppercase SAP one-character code or ISO language code; defaults to SAP language `E`. |
 

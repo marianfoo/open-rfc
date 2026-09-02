@@ -64,8 +64,9 @@ Before replacing an existing installation:
 1. Inventory every imported `node-rfc` export and every connection option.
 2. Keep `Client` and `Pool` imports, but remove or redesign uses of `Server`,
    `Throughput`, `noderfc_binding`, `reloadIniFile`, SDK-global/INI
-   configuration, SNC/SSO/X.509, registered server mode, callbacks from ABAP,
-   tRFC, qRFC, and bgRFC. They are not supplied by this beta.
+   configuration, SNC, SSO modes other than the documented MYSAPSSO2 preview,
+   X.509, registered server mode, callbacks from ABAP, tRFC, qRFC, and bgRFC.
+   They are not supplied by this beta.
 3. Use only the supported direct application-server route; message-server and
    SAProuter code is an unsupported preview, not a migration target.
 4. Treat `call()` and the metadata methods as Promise-only, `invoke()` as the
@@ -334,6 +335,6 @@ target and keep the previous lockfile as the rollback boundary.
 
 !!! warning "Compatibility is a boundary, not SDK parity"
     The supported client and pool surface is intentionally fail-closed. Server
-    mode, SNC, SSO, X.509, SDK globals, and other unsupported capabilities do
-    not become available merely because the package is installed as
-    `node-rfc`.
+    mode, SNC, SSO modes other than the documented MYSAPSSO2 preview, X.509,
+    SDK globals, and other unsupported capabilities do not become available
+    merely because the package is installed as `node-rfc`.

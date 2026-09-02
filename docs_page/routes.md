@@ -4,13 +4,14 @@
 
 | Route | Support in a published 0.x beta |
 |---|---|
-| Direct application server | Supported for the documented classic RFC/password API and representative one-run paths. Project tests do not yet cover dedicated large-data, disposition, metadata, recovery, principal-isolation, transaction, value, and contention cases on both selected SAP releases. |
+| Direct application server | Supported for the documented classic RFC/password API and representative one-run paths. MYSAPSSO2 ticket logon is an offline-tested preview, not part of this live-qualified claim. Project tests do not yet cover dedicated large-data, disposition, metadata, recovery, principal-isolation, transaction, value, and contention cases on both selected SAP releases. |
 | Message server | Unsupported preview. Implemented and tested offline, but unsupported by this release. The classic route is unencrypted and trusts the configured message server to select the application server. |
 | SAProuter | Unsupported preview. Implemented and tested offline, but unsupported by this release. Routing alone does not add encryption or peer authentication. |
-| Cloud Connector TCP/SOCKS5 | Unsupported preview for direct named-user classic RFC. Implemented with an explicit TCP mapping; Cloud Connector cannot enforce RFC function-module resources on this opaque route. |
+| Cloud Connector TCP/SOCKS5 | Unsupported preview for direct explicit-user classic RFC. Implemented with an explicit TCP mapping; Cloud Connector cannot enforce RFC function-module resources on this opaque route. |
 | Cloud Connector RFC proxy / principal propagation | Unsupported. The RFC-proxy endpoint is a different protocol; upgrade, propagated identity, and RFC-proxy business invocation remain outside the boundary. |
 | WebSocket RFC | Unsupported preview. The first beta fails closed before business I/O; WebSocket business invocation is outside the supported boundary. |
-| SNC, SSO, X.509 | Unsupported; parameters must be rejected before network I/O. |
+| MYSAPSSO2 ticket | Unsupported preview. Implemented for classic routes and tested through a scripted CPIC peer, but not yet qualified with a disposable ticket on both documented live beta systems. |
+| SNC, other SSO mechanisms, X.509 | Unsupported; parameters must be rejected before network I/O. |
 
 ## Direct parameters
 
@@ -24,6 +25,12 @@
   lang: "EN"
 }
 ```
+
+For the MYSAPSSO2 preview, keep `user` and replace `passwd` with
+`mysapsso2: process.env.SAP_MYSAPSSO2`. Exactly one credential is allowed. The
+connector canonicalizes percent escapes and SAP's cookie `!` substitution,
+sends CPIC ticket field `0x0670`, and omits the password field. This changes
+authentication only; it does not encrypt or authenticate the network peer.
 
 Non-Unicode and MDMP partners are outside the current boundary. The Unicode
 little-endian path uses SAP code page 4103; a different negotiated partner code
@@ -47,6 +54,7 @@ page must be rejected until a matching codec exists.
 These parameters select the implemented preview route. The connector chooses a
 backend from the requested logon group and then opens ordinary classic RFC to
 that server. Neither leg supplies transport encryption or peer authentication.
+The same `user` plus `mysapsso2` substitution is implemented for this route.
 The route is outside this release's beta support. Do not use a successful
 preview connection as proof that a deployment is supported; consult the
 status page shipped with a later exact version before assuming this changed.
