@@ -156,6 +156,26 @@ test("encodes callback success and declared-exception responses", () => {
       exports: [{ name: "EXPECTED", value: Buffer.alloc(0) }],
     }, ["EXPECTED", "OPTIONAL"]),
   );
+
+  const xrfcValue = Buffer.from(`<DEEP>${"x".repeat(16_384)}</DEEP>`);
+  const xrfcResponse = decodeCpicFunctionResultFields(
+    encodeCpicRfcCallbackResponse({
+      xrfcParameters: [{ name: "DEEP", value: xrfcValue }],
+    }, ["DEEP"]),
+  );
+  assert.deepEqual(
+    decodeClassicRfcResult(xrfcResponse.fields).xrfcParameters,
+    [{ value: xrfcValue, chunkCount: 2 }],
+  );
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      xrfcParameters: [{
+        name: "EXPECTED",
+        value: Buffer.from("<ACTUAL></ACTUAL>"),
+      }],
+    }, ["EXPECTED"]),
+    /EXPECTED has root ACTUAL/u,
+  );
 });
 
 test("frames compact and streamed callback replies for the APPC sender", () => {

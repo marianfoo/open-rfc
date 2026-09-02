@@ -204,6 +204,47 @@ test("fails closed when a callback handler returns an unrequested output", async
   assert.equal(session.state, "closed");
 });
 
+test("returns a bounded xRFC callback output through the scripted peer", async (t) => {
+  const value = Buffer.from("<DEEP><TEXT>callback</TEXT></DEEP>");
+  let returned: Buffer | undefined;
+  const request = encodeCpicCutFunctionRequest({
+    functionName: "Z_DEEP_CALLBACK",
+    requestedOutputs: ["DEEP"],
+  }).subarray(0, -8);
+  const peer = await ScriptedRfcPeer.start([{
+    replies: [{
+      kind: "callbacks",
+      requests: [request],
+      final: { kind: "fields", fields: successfulRegularFields() },
+      inspectResponse(response) {
+        const decoded = decodeCpicFunctionResultFields(response);
+        returned = decodeClassicRfcResult(decoded.fields)
+          .xrfcParameters[0]?.value;
+      },
+    }],
+  }]);
+  t.after(() => peer.close());
+  const session = await DirectCpicSession.open({
+    host: "127.0.0.1",
+    port: peer.port,
+    applicationServerService: "sapdp00",
+    operationTimeoutMs: 1_000,
+    callbacks: {
+      Z_DEEP_CALLBACK: () => ({
+        xrfcParameters: [{ name: "DEEP", value }],
+      }),
+    },
+  });
+  await session.logonAndPing({
+    client: "001",
+    user: "RFCUSR",
+    password: "not-a-real-password",
+  });
+  await session.invokeClassicWithMetadata(OUTER_METADATA, {}, new Map());
+  assert.deepEqual(returned, value);
+  await session.close();
+});
+
 test("bounds callback recursion within one outer call", async (t) => {
   let responses = 0;
   const peer = await ScriptedRfcPeer.start([{

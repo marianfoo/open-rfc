@@ -172,8 +172,8 @@
     },
     {
       "path": "dist/src/index.d.ts",
-      "bytes": 2210,
-      "sha256": "221fa7c289aca13617f5b1d00379246fb73643ac0d91d4ce7bd5b641d9aa6327"
+      "bytes": 2237,
+      "sha256": "cdc794d59651f53bbd34d5453da214630c2a4b7a6d51dbb24fdd544ae4f35bc3"
     },
     {
       "path": "dist/src/lifecycle/session-context-runtime.d.ts",
@@ -287,8 +287,8 @@
     },
     {
       "path": "dist/src/protocol/rfc-callback.d.ts",
-      "bytes": 3064,
-      "sha256": "022dc666d23f69872ca3ec982bc5cc83eee31cfd7b402ea6d6abb26d1d3f37c0"
+      "bytes": 3216,
+      "sha256": "d94ceb5678a9272dc432e0300de3df30bd0a3145b0e4dab2d00ed2ea32187fd1"
     },
     {
       "path": "dist/src/protocol/rfc-error-envelope.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "ac65bc5c885896a271fd1258278350d722054e65210a4d2b6247fade0e602444"
+  "aggregateSha256": "44d06744feddd157e98fad850b4ab1173108e44c79c54547ad64753ed678bdb9"
 }
