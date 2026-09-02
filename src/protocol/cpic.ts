@@ -1744,6 +1744,9 @@ export function encodeCpicCutFunctionRequest(
         `${table.name} row count exceeds the unsigned 32-bit range`,
       );
     }
+    if (table.rows.length !== 0 && table.rowByteLength === 0) {
+      throw new RangeError(`${table.name} cannot contain zero-width rows`);
+    }
     const header = Buffer.alloc(8);
     header.writeUInt32BE(table.rowByteLength, 0);
     header.writeUInt32BE(table.rows.length, 4);

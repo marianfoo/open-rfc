@@ -1942,6 +1942,14 @@ test("encodes CUT table inputs as full-width simple-compression records", () => 
       }),
     /ROWS row 0 contains 3 bytes; expected 4/,
   );
+  assert.throws(
+    () =>
+      encodeCpicCutFunctionRequest({
+        functionName: "Z_TABLE_CALL",
+        tables: [{ name: "ROWS", rowByteLength: 0, rows: [Buffer.alloc(0)] }],
+      }),
+    /ROWS cannot contain zero-width rows/,
+  );
 });
 
 test("returns cloned application fields only through the explicit result decoder", () => {
