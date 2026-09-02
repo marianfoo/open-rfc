@@ -87,3 +87,13 @@ export {
   type RfcDiagnosticSink,
   type RfcDiagnosticState,
 } from "./diagnostics/structured-diagnostics.js";
+export {
+  type RfcCallbackContext,
+  type RfcCallbackHandler,
+  type RfcCallbackHandlers,
+  type RfcCallbackNamedValue,
+  type RfcCallbackRequest,
+  type RfcCallbackResponse,
+  type RfcCallbackTable,
+  type RfcCallbackXrfcParameter,
+} from "./protocol/rfc-callback.js";

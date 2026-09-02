@@ -375,6 +375,7 @@ test("snapshots and validates every compatibility client option before I/O", () 
   });
 
   const conversion = (value: string) => ({ decimal: value });
+  const callback = () => ({ exports: [] });
   const recursiveSerializerPolicy = {
     profile: "abap-7.58" as const,
     observation: {
@@ -389,6 +390,7 @@ test("snapshots and validates every compatibility client option before I/O", () 
     timeout: 0.001,
     logLevel: 0,
     recursiveSerializerPolicy,
+    callbacks: { Z_CALLBACK: callback },
   });
   recursiveSerializerPolicy.observation.defaultSerializer = "classic-xrfc";
   assert.deepEqual(valid, {
@@ -404,8 +406,11 @@ test("snapshots and validates every compatibility client option before I/O", () 
         basxmlDisabledSerializer: "classic-xrfc",
       },
     },
+    callbacks: { Z_CALLBACK: callback },
   });
   assert.equal(Object.isFrozen(valid), true);
+  assert.equal(Object.isFrozen(valid?.callbacks), true);
+  assert.equal(valid?.callbacks?.Z_CALLBACK, callback);
   assert.equal(Object.isFrozen(valid?.recursiveSerializerPolicy), true);
   assert.equal(
     Object.isFrozen(valid?.recursiveSerializerPolicy?.observation),
@@ -416,6 +421,11 @@ test("snapshots and validates every compatibility client option before I/O", () 
   assert.equal(snapshotRfcClientOptions({ bcd: conversion })?.bcd, conversion);
   assert.equal(snapshotRfcClientOptions({ int8Mode: "string" })?.int8Mode, "string");
   assert.equal(snapshotRfcClientOptions({ int8Mode: undefined })?.int8Mode, "number");
+  assert.equal(snapshotRfcClientOptions({ callbacks: undefined })?.callbacks, undefined);
+  assert.throws(
+    () => snapshotRfcClientOptions({ callbacks: { Z_CALLBACK: 1 as never } }),
+    /must be a function/u,
+  );
 
   for (const invalid of [null, [], "bad"]) {
     assert.throws(

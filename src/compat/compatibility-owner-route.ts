@@ -1,4 +1,7 @@
-import type { DirectDestinationSessionFactory } from
+import type {
+  DirectDestinationSessionFactory,
+  DirectDestinationSessionOptions,
+} from
   "../destination/direct-destination-owner.js";
 import { createProductionDirectDestinationSessionFactory } from
   "../destination/direct-destination-owner.js";
@@ -33,6 +36,7 @@ export interface CompatibilityOwnerRoute {
  */
 export function planCompatibilityOwnerRoute(
   parameters: RfcConnectionParameters,
+  session?: DirectDestinationSessionOptions,
 ): CompatibilityOwnerRoute {
   const plan = planConnectionRoute(parameters);
   if (plan.route.kind === "direct") {
@@ -55,6 +59,7 @@ export function planCompatibilityOwnerRoute(
         kind: "direct" as const,
         connection: normalizedDirectConnectionFromPlan(plan),
         sessionFactory: createProductionDirectDestinationSessionFactory({
+          ...session,
           transportFactory,
         }),
       });
@@ -67,6 +72,7 @@ export function planCompatibilityOwnerRoute(
         kind: "direct" as const,
         connection: normalizedDirectConnectionFromPlan(plan),
         sessionFactory: createProductionDirectDestinationSessionFactory({
+          ...session,
           transportFactory,
         }),
       });
@@ -93,6 +99,9 @@ export function planCompatibilityOwnerRoute(
   return Object.freeze({
     kind: "message-server" as const,
     connection: messageServerOwnerConnection(plan),
-    sessionFactory: createMessageServerDirectSessionFactory({ plan }),
+    sessionFactory: createMessageServerDirectSessionFactory({
+      plan,
+      ...(session === undefined ? {} : { directSession: session }),
+    }),
   });
 }

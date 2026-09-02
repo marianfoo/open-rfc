@@ -28,6 +28,10 @@
   per-phase bound before the RFC handshake begins.
 - Classify authorization or environment failure separately from protocol
   incompatibility.
+- Treat `DESTINATION 'BACK'` handlers as synchronous code inside the active
+  outer exchange. Do not re-enter the same client, return a Promise, retain raw
+  buffers unnecessarily, or log callback inputs and outputs. Unknown functions
+  receive `FU_NOT_FOUND`; malformed or excessive callbacks retire the session.
 
 ## Uncertain send
 

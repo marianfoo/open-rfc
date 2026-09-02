@@ -230,12 +230,18 @@ npm record identify the released source and package.
   `passwd`, and treat the ticket as a credential. The target system must trust
   the ticket issuer. This path is protocol- and socket-tested offline but is not
   part of the live-qualified beta support contract yet.
+- Server-initiated RFC calls made with ABAP `DESTINATION 'BACK'` are an
+  implemented preview for classic client calls. Configure raw synchronous
+  handlers through `clientOptions.callbacks`; unknown functions receive
+  `FU_NOT_FOUND`, malformed callback traffic retires the session, and one outer
+  call is limited to 64 callbacks. This path is protocol- and scripted-socket
+  tested but has not been live-qualified by this TypeScript implementation.
 - WebSocket RFC business calls, Cloud Connector principal propagation, SNC,
   and X.509 are not supported and fail closed before business I/O when their
   required provider or authentication capability is absent.
 - SNC, other SSO mechanisms, X.509, non-Unicode/MDMP partners, registered server
-  mode, callbacks from ABAP, Throughput, tRFC, qRFC, bgRFC, basXML, compression,
-  and complete NW RFC SDK parity are not supported.
+  mode, Throughput, tRFC, qRFC, bgRFC, basXML, compression, and complete NW RFC
+  SDK parity are not supported.
 
 The package summary is intentionally narrow: unknown or unavailable provider
 capabilities fail before business I/O rather than silently disappearing, while

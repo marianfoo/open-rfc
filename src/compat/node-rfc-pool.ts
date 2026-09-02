@@ -21,6 +21,7 @@ import {
   pooledClientClaim,
   projectNodeRfcNormalizationError,
   projectNodeRfcPublicError,
+  directSessionOptionsFromRfcClientOptions,
   snapshotRfcClientOptions,
   type PooledClientClaim,
   type RfcClientOptions,
@@ -286,8 +287,14 @@ export class Pool {
     if (this.#owner !== undefined) return this.#owner;
     this.#requiredOpen();
     let route;
+    const session = directSessionOptionsFromRfcClientOptions(
+      this.#clientOptions,
+    );
     try {
-      route = planCompatibilityOwnerRoute(this.#connectionParameters);
+      route = planCompatibilityOwnerRoute(
+        this.#connectionParameters,
+        session,
+      );
     } catch (error) {
       throw projectNodeRfcNormalizationError(error);
     }
@@ -328,6 +335,7 @@ export class Pool {
       ...(this.#clientOptions?.diagnostics === undefined
         ? {}
         : { metadata: { diagnostics: this.#clientOptions.diagnostics } }),
+      ...(session === undefined ? {} : { session }),
     });
     this.#normalized = route.connection;
     this.#owner = owner;

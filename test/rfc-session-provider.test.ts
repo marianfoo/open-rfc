@@ -758,6 +758,17 @@ test("route and provider registries reject ambiguous identities before selection
     }),
     /live-policy/u,
   );
+  assert.doesNotThrow(
+    () => new RFCClient(undefined, {
+      callbacks: { Z_CALLBACK: () => ({ exports: [] }) },
+    }),
+  );
+  assert.throws(
+    () => new RFCClient(undefined, {
+      callbacks: { Z_CALLBACK: 1 as never },
+    }),
+    /must be a function/u,
+  );
   assert.throws(
     () => bindRFCClientSessionProvider(null as never, {} as never),
     /binding expects an object identity/u,

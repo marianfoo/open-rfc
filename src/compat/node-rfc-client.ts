@@ -25,6 +25,7 @@ import {
   type DirectDestinationApplicationLease,
   type DirectDestinationOwner,
   type DirectDestinationSessionFactory,
+  type DirectDestinationSessionOptions,
 } from "../destination/direct-destination-owner.js";
 import {
   createDeferredRfcDiagnosticReporter,
@@ -35,6 +36,10 @@ import {
 import type { RfcFunctionInterface } from "../metadata/rfc-function-interface.js";
 import type { RfcStructureDefinition } from "../metadata/rfc-structure-definition.js";
 import { NiTransportError } from "../transport/ni-socket.js";
+import {
+  snapshotRfcCallbackHandlers,
+  type RfcCallbackHandlers,
+} from "../protocol/rfc-callback.js";
 import { ConnectivitySocks5Error } from
   "../transport/connectivity-socks5-tunnel.js";
 import { SapRouterTransportError } from "../transport/saprouter-tunnel.js";
@@ -81,6 +86,8 @@ export interface RfcClientOptions {
   readonly diagnostics?: RfcDiagnosticEmitter;
   /** open-rfc extension: evidence-bound admission for recursive live sends. */
   readonly recursiveSerializerPolicy?: LiveRecursiveSerializerPolicy;
+  /** open-rfc preview: raw synchronous DESTINATION 'BACK' handlers by FM name. */
+  readonly callbacks?: RfcCallbackHandlers;
 }
 
 export interface RfcCallOptions {
@@ -350,6 +357,7 @@ const RFC_CLIENT_OPTION_NAMES = Object.freeze([
   "logLevel",
   "diagnostics",
   "recursiveSerializerPolicy",
+  "callbacks",
 ] as const);
 const RFC_CLIENT_OPTION_KEYS = new Set<string>(RFC_CLIENT_OPTION_NAMES);
 
@@ -393,6 +401,7 @@ export function snapshotRfcClientOptions(
     logLevel?: number;
     diagnostics?: RfcDiagnosticEmitter;
     recursiveSerializerPolicy?: LiveRecursiveSerializerPolicy;
+    callbacks?: RfcCallbackHandlers;
   } = {};
   for (const name of RFC_CLIENT_OPTION_NAMES) {
     const captured = ownDataValue(input, name, "clientOptions");
@@ -405,7 +414,8 @@ export function snapshotRfcClientOptions(
         name === "bcd" ||
         name === "int8Mode" ||
         name === "diagnostics" ||
-        name === "recursiveSerializerPolicy"
+        name === "recursiveSerializerPolicy" ||
+        name === "callbacks"
       ) &&
       captured.value === undefined
     ) continue;
@@ -419,9 +429,16 @@ export function snapshotRfcClientOptions(
           ? snapshotLiveRecursiveSerializerPolicy(
               captured.value as LiveRecursiveSerializerPolicy,
             )
-          : name === "int8Mode"
-            ? snapshotClassicInt8Mode(captured.value, "clientOptions.int8Mode")
-            : captured.value,
+          : name === "callbacks"
+            ? Object.freeze(Object.fromEntries(
+                snapshotRfcCallbackHandlers(
+                  captured.value as RfcCallbackHandlers,
+                  "clientOptions.callbacks",
+                )!,
+              ))
+            : name === "int8Mode"
+              ? snapshotClassicInt8Mode(captured.value, "clientOptions.int8Mode")
+              : captured.value,
       enumerable: true,
       configurable: false,
       writable: false,
@@ -460,6 +477,28 @@ export function snapshotRfcClientOptions(
     throw new RangeError("clientOptions.logLevel must be a non-negative integer");
   }
   return Object.freeze(snapshot);
+}
+
+/** Internal composition shared by archived Client and Pool owner creation. */
+export function directSessionOptionsFromRfcClientOptions(
+  options: RfcClientOptions | undefined,
+): DirectDestinationSessionOptions | undefined {
+  const recursiveSerializerPolicy = options?.recursiveSerializerPolicy;
+  const callbacks = options?.callbacks;
+  if (recursiveSerializerPolicy === undefined && callbacks === undefined) {
+    return undefined;
+  }
+  return Object.freeze({
+    ...(callbacks === undefined ? {} : { callbacks }),
+    ...(recursiveSerializerPolicy === undefined
+      ? {}
+      : {
+          recursiveSerializerDecisionProvider:
+            createLiveRecursiveSerializerDecisionProvider(
+              recursiveSerializerPolicy,
+            ),
+        }),
+  });
 }
 
 function notRequestedSet(options: RfcCallOptions): ReadonlySet<string> {
@@ -728,16 +767,18 @@ export class Client {
     }
     let normalized: NormalizedDirectConnection;
     let sessionFactory: DirectDestinationSessionFactory | undefined;
+    const session = directSessionOptionsFromRfcClientOptions(this.#clientOptions);
     try {
-      const route = planCompatibilityOwnerRoute(this.#connectionParameters);
+      const route = planCompatibilityOwnerRoute(
+        this.#connectionParameters,
+        session,
+      );
       normalized = route.connection;
       sessionFactory = route.sessionFactory;
     } catch (error) {
       this.#state = "closed";
       throw projectNodeRfcNormalizationError(error);
     }
-    const recursiveSerializerPolicy =
-      this.#clientOptions?.recursiveSerializerPolicy;
     let owner: DirectDestinationOwner;
     try {
       owner = createOwner({
@@ -772,16 +813,7 @@ export class Client {
         ...(this.#clientOptions?.diagnostics === undefined
           ? {}
           : { metadata: { diagnostics: this.#clientOptions.diagnostics } }),
-        ...(recursiveSerializerPolicy === undefined
-          ? {}
-          : {
-              session: {
-                recursiveSerializerDecisionProvider:
-                  createLiveRecursiveSerializerDecisionProvider(
-                    recursiveSerializerPolicy,
-                  ),
-              },
-            }),
+        ...(session === undefined ? {} : { session }),
       });
     } catch (error) {
       if (this.#state === "opening") this.#state = "closed";

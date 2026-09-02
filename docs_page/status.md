@@ -63,6 +63,13 @@ parameter-to-CPIC path is covered by offline and scripted-socket tests, but no
 disposable ticket was available for qualification on both documented live SAP
 systems. Password authentication therefore remains the current beta claim.
 
+Client-side `DESTINATION 'BACK'` callbacks are another implemented preview.
+The bounded same-session callback loop, success response, `FU_NOT_FOUND`
+response, and fail-closed unconfigured path are covered by protocol and
+scripted-socket tests. The TypeScript implementation has not yet been exercised
+against the callback RFMs on both documented live SAP systems, so callbacks are
+not part of the live-qualified beta claim.
+
 ## Public source and license
 
 The source and npm package are distributed under Apache-2.0. The repository

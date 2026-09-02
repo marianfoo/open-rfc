@@ -22,6 +22,8 @@ const configuration = {
   poolOptions: { low: 0, high: 1 },
 } as const;
 
+const callbackHandler = () => ({ exports: [] });
+
 function routedOwnerDouble(): DirectDestinationOwner {
   let idle = 0;
   const leases = new Set<object>();
@@ -63,35 +65,44 @@ test("archived Client composes message-server physical routing and direct preced
     },
   });
   try {
-    const message = new Client({
-      mshost: "message.example.test",
-      msserv: "sapmsQAS",
-      r3name: "QAS",
-      sysid: "IGN",
-      group: "PUBLIC",
-      client: "001",
-      user: "MESSAGE_USER",
-      passwd: ["message", "password"].join("-"),
-    });
+    const message = new Client(
+      {
+        mshost: "message.example.test",
+        msserv: "sapmsQAS",
+        r3name: "QAS",
+        sysid: "IGN",
+        group: "PUBLIC",
+        client: "001",
+        user: "MESSAGE_USER",
+        passwd: ["message", "password"].join("-"),
+      },
+      { callbacks: { Z_CALLBACK: callbackHandler } },
+    );
     await message.open();
     assert.equal(contexts[0]?.connection.host, "message.example.test");
     assert.equal(typeof contexts[0]?.sessionFactory?.open, "function");
+    assert.equal(contexts[0]?.session?.callbacks?.Z_CALLBACK, callbackHandler);
+    assert.equal(Object.isFrozen(contexts[0]?.session?.callbacks), true);
     assert.equal(JSON.stringify(message.connectionInfo).includes(["message", "password"].join("-")), false);
     await message.close();
 
-    const direct = new Client({
-      ashost: "direct.example.test",
-      sysnr: "01",
-      mshost: "ignored-message.example.test",
-      r3name: "IGN",
-      group: "PUBLIC",
-      client: "001",
-      user: "DIRECT_USER",
-      passwd: ["direct", "password"].join("-"),
-    });
+    const direct = new Client(
+      {
+        ashost: "direct.example.test",
+        sysnr: "01",
+        mshost: "ignored-message.example.test",
+        r3name: "IGN",
+        group: "PUBLIC",
+        client: "001",
+        user: "DIRECT_USER",
+        passwd: ["direct", "password"].join("-"),
+      },
+      { callbacks: { Z_CALLBACK: callbackHandler } },
+    );
     await direct.open();
     assert.equal(contexts[1]?.connection.host, "direct.example.test");
     assert.equal(contexts[1]?.sessionFactory, undefined);
+    assert.equal(contexts[1]?.session?.callbacks?.Z_CALLBACK, callbackHandler);
     await direct.close();
   } finally {
     restore();
@@ -117,11 +128,13 @@ test("archived Pool keeps group lookup at the per-physical session seam", async 
     },
     poolOptions: { low: 0, high: 2 },
     resourceOptions: { maxConnections: 2 },
+    clientOptions: { callbacks: { Z_CALLBACK: callbackHandler } },
   });
   try {
     await pool.ready(2);
     assert.equal(context?.connection.host, "message.example.test");
     assert.equal(typeof context?.sessionFactory?.open, "function");
+    assert.equal(context?.session?.callbacks?.Z_CALLBACK, callbackHandler);
     assert.deepEqual(pool.status, { ready: 2, leased: 0 });
   } finally {
     await pool.closeAll();

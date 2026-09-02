@@ -21,7 +21,7 @@ import {
   type CpicField,
 } from "../../src/protocol/cpic.js";
 
-export type ScriptedRegularRfcReply =
+export type ScriptedRfcDataReply =
   | {
       readonly kind: "fields";
       readonly fields: readonly CpicField[];
@@ -40,6 +40,16 @@ export type ScriptedRegularRfcReply =
       readonly appcReturnCode?: number;
       readonly sapReturnCode?: number;
       readonly isFinal?: boolean;
+    };
+
+export type ScriptedRegularRfcReply =
+  | ScriptedRfcDataReply
+  | {
+      /** Re-entrant server→client requests sent before the outer response. */
+      readonly kind: "callbacks";
+      readonly requests: readonly Uint8Array[];
+      readonly final: ScriptedRfcDataReply;
+      readonly inspectResponse?: (response: Buffer, index: number) => void;
     }
   | { readonly kind: "close" }
   | { readonly kind: "silence" };
@@ -69,6 +79,12 @@ interface GenerationState {
   barrierCount: number;
   streamedApplicationBytes: number;
   streamedDataOrdinal: number | undefined;
+  pendingCallbacks?: {
+    readonly requests: readonly Uint8Array[];
+    readonly final: ScriptedRfcDataReply;
+    readonly inspectResponse?: (response: Buffer, index: number) => void;
+    index: number;
+  };
 }
 
 function initialLogonResponse(status: number): Buffer {
@@ -209,6 +225,32 @@ export class ScriptedRfcPeer {
       return;
     }
     if (reply.kind === "silence") return;
+    if (reply.kind === "callbacks") {
+      if (reply.requests.length === 0) {
+        throw new Error("scripted callback reply needs at least one request");
+      }
+      state.pendingCallbacks = {
+        requests: reply.requests.map((request) => Buffer.from(request)),
+        final: reply.final,
+        inspectResponse: reply.inspectResponse,
+        index: 0,
+      };
+      this.#write(socket, encodeIncomingAppcDataRecord({
+        conversationId: state.conversationId,
+        communicationIndex: 0,
+        connectionIndex: state.connectionIndex,
+        data: reply.requests[0]!,
+      }));
+      return;
+    }
+    this.#sendDataReply(socket, state, reply);
+  }
+
+  #sendDataReply(
+    socket: Socket,
+    state: GenerationState,
+    reply: ScriptedRfcDataReply,
+  ): void {
     this.#write(socket, encodeIncomingAppcDataRecord({
       ...(reply.initialReceive ? { functionCode: AppcFunction.Receive } : {}),
       appcReturnCode: reply.appcReturnCode,
@@ -299,6 +341,32 @@ export class ScriptedRfcPeer {
     }
     if (header.functionCode === AppcFunction.Deallocate) {
       socket.end();
+      return;
+    }
+    if (state.pendingCallbacks !== undefined) {
+      if (header.functionCode !== AppcFunction.SapSend) {
+        throw new Error("scripted RFC peer expected a compact callback response");
+      }
+      const pending = state.pendingCallbacks;
+      const fragment = decodeAppcDataFragment(payload);
+      const response = fragment.data.subarray(
+        0,
+        fragment.data.byteLength - fragment.header.sapParameterLength,
+      );
+      pending.inspectResponse?.(response, pending.index);
+      pending.index += 1;
+      const next = pending.requests[pending.index];
+      if (next !== undefined) {
+        this.#write(socket, encodeIncomingAppcDataRecord({
+          conversationId: state.conversationId,
+          communicationIndex: 0,
+          connectionIndex: state.connectionIndex,
+          data: next,
+        }));
+      } else {
+        state.pendingCallbacks = undefined;
+        this.#sendDataReply(socket, state, pending.final);
+      }
       return;
     }
     if (
