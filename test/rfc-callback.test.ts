@@ -78,6 +78,22 @@ test("encodes callback success and declared-exception responses", () => {
   assert.equal(exception.success, false);
   assert.equal(exception.envelope.outcome, "abapException");
   assert.equal(exception.envelope.facts.exceptionKey, "FU_NOT_FOUND");
+
+  const handlerException = decodeCpicFunctionResultFields(
+    encodeCpicRfcCallbackResponse({ exception: "NO_AUTHORITY" }),
+  );
+  assert.equal(handlerException.success, false);
+  assert.equal(
+    handlerException.envelope.facts.exceptionKey,
+    "NO_AUTHORITY",
+  );
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      exception: "NO_AUTHORITY",
+      exports: [],
+    } as never),
+    /must not include exports/u,
+  );
 });
 
 test("frames compact and streamed callback replies for the APPC sender", () => {
