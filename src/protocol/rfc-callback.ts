@@ -3,6 +3,7 @@ import { types as nodeUtilTypes } from "node:util";
 import {
   CpicTag,
   CLASSIC_XRFC_XML_CHUNK_LENGTH,
+  DEFAULT_MAX_CPIC_FIELD_COUNT,
   DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH,
   decodeCpicFieldChainPrefix,
   encodeCpicFieldChain,
@@ -170,6 +171,122 @@ function reserveCallbackResponseBytes(
         `${DEFAULT_MAX_CPIC_FIELD_CHAIN_LENGTH}`,
     );
   }
+}
+
+interface CallbackResponseBudget {
+  retainedBytes: bigint;
+  fieldCount: number;
+}
+
+function reserveCallbackResponseFields(
+  budget: CallbackResponseBudget,
+  count: number,
+): void {
+  budget.fieldCount += count;
+  if (
+    !Number.isSafeInteger(budget.fieldCount) ||
+    budget.fieldCount > DEFAULT_MAX_CPIC_FIELD_COUNT
+  ) {
+    throw new RangeError(
+      `callback response fields exceed ${DEFAULT_MAX_CPIC_FIELD_COUNT}`,
+    );
+  }
+}
+
+function callbackRecord(
+  value: unknown,
+  path: string,
+  allowedKeys: readonly string[],
+): Readonly<Record<string, unknown>> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    nodeUtilTypes.isProxy(value)
+  ) {
+    throw new TypeError(`${path} must be a plain object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${path} must be a plain object`);
+  }
+  const snapshot = Object.create(null) as Record<string, unknown>;
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== "string") {
+      throw new TypeError(`${path} must not contain symbol properties`);
+    }
+    if (!allowedKeys.includes(key)) {
+      throw new Error(`${path} contains unknown field ${key}`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !("value" in descriptor)) {
+      throw new TypeError(`${path}.${key} must be an own data property`);
+    }
+    Object.defineProperty(snapshot, key, {
+      value: descriptor.value,
+      enumerable: true,
+    });
+  }
+  return Object.freeze(snapshot) as Readonly<Record<string, unknown>>;
+}
+
+function callbackDataProperty(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+): unknown {
+  if (!Object.hasOwn(record, key)) {
+    throw new TypeError(`${path}.${key} must be an own data property`);
+  }
+  return record[key];
+}
+
+function callbackArrayLength(value: unknown, path: string): number {
+  if (!Array.isArray(value) || nodeUtilTypes.isProxy(value)) {
+    throw new TypeError(`${path} must be an array`);
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(value, "length");
+  if (
+    descriptor === undefined ||
+    !("value" in descriptor) ||
+    !Number.isSafeInteger(descriptor.value) ||
+    descriptor.value < 0
+  ) {
+    throw new TypeError(`${path}.length must be an own data property`);
+  }
+  if (descriptor.value > DEFAULT_MAX_CPIC_FIELD_COUNT) {
+    throw new RangeError(
+      `${path} exceeds ${DEFAULT_MAX_CPIC_FIELD_COUNT} entries`,
+    );
+  }
+  return descriptor.value as number;
+}
+
+function snapshotCallbackArray(
+  value: unknown,
+  path: string,
+  knownLength?: number,
+): readonly unknown[] {
+  const length = knownLength ?? callbackArrayLength(value, path);
+  const source = value as readonly unknown[];
+  const keys = Reflect.ownKeys(source);
+  if (keys.length !== length + 1 || !keys.includes("length")) {
+    throw new TypeError(`${path} must be a dense array without extra keys`);
+  }
+  const keySet = new Set<PropertyKey>(keys);
+  const snapshot: unknown[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const key = String(index);
+    if (!keySet.has(key)) {
+      throw new TypeError(`${path} must be a dense array without extra keys`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(source, key);
+    if (descriptor === undefined || !("value" in descriptor)) {
+      throw new TypeError(`${path}[${index}] must be an own data property`);
+    }
+    snapshot.push(descriptor.value);
+  }
+  return Object.freeze(snapshot);
 }
 
 function exactCallbackTrailer(
@@ -423,25 +540,30 @@ export function decodeCpicRfcCallbackRequest(
 }
 
 function snapshotNamedValues(
-  values: readonly RfcCallbackNamedValue[] | undefined,
+  values: unknown,
   path: string,
-  budget: { retainedBytes: bigint },
+  budget: CallbackResponseBudget,
 ): readonly RfcCallbackNamedValue[] {
   if (values === undefined) return Object.freeze([]);
-  if (!Array.isArray(values)) throw new TypeError(`${path} must be an array`);
+  const entryCount = callbackArrayLength(values, path);
+  reserveCallbackResponseFields(budget, entryCount * 2);
+  const entries = snapshotCallbackArray(values, path, entryCount);
   const names = new Set<string>();
-  return Object.freeze(Array.from(values, (entry, index) => {
-    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-      throw new TypeError(`${path}[${index}] must be an object`);
-    }
-    const name = callbackName(entry.name, `${path}[${index}].name`, 30);
+  return Object.freeze(Array.from(entries, (entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    const record = callbackRecord(entry, entryPath, ["name", "value"]);
+    const name = callbackName(
+      callbackDataProperty(record, "name", entryPath) as string,
+      `${entryPath}.name`,
+      30,
+    );
     if (names.has(name)) throw new Error(`${path} repeats ${name}`);
     names.add(name);
     return Object.freeze({
       name,
       value: boundedCallbackSnapshot(
-        entry.value,
-        `${path}[${index}].value`,
+        callbackDataProperty(record, "value", entryPath) as Uint8Array,
+        `${entryPath}.value`,
         budget,
       ),
     });
@@ -449,45 +571,58 @@ function snapshotNamedValues(
 }
 
 function snapshotTables(
-  tables: readonly RfcCallbackTable[] | undefined,
-  budget: { retainedBytes: bigint },
+  tables: unknown,
+  budget: CallbackResponseBudget,
 ): readonly RfcCallbackTable[] {
   if (tables === undefined) return Object.freeze([]);
-  if (!Array.isArray(tables)) {
-    throw new TypeError("callback response tables must be an array");
-  }
+  const tableCount = callbackArrayLength(tables, "callback response tables");
+  reserveCallbackResponseFields(budget, tableCount * 2);
+  const tableEntries = snapshotCallbackArray(
+    tables,
+    "callback response tables",
+    tableCount,
+  );
   const names = new Set<string>();
-  return Object.freeze(Array.from(tables, (table, tableIndex) => {
-    if (typeof table !== "object" || table === null || Array.isArray(table)) {
-      throw new TypeError(`callback response tables[${tableIndex}] must be an object`);
-    }
+  return Object.freeze(Array.from(tableEntries, (table, tableIndex) => {
+    const tablePath = `callback response tables[${tableIndex}]`;
+    const record = callbackRecord(
+      table,
+      tablePath,
+      ["name", "rowByteLength", "rows"],
+    );
     const name = callbackName(
-      table.name,
-      `callback response tables[${tableIndex}].name`,
+      callbackDataProperty(record, "name", tablePath) as string,
+      `${tablePath}.name`,
       30,
     );
     if (names.has(name)) throw new Error(`callback response repeats table ${name}`);
     names.add(name);
     const rowByteLength = callbackUint32(
-      table.rowByteLength,
+      callbackDataProperty(record, "rowByteLength", tablePath) as number,
       `callback response table ${name} rowByteLength`,
     );
-    if (!Array.isArray(table.rows)) {
-      throw new TypeError(`callback response table ${name} rows must be an array`);
-    }
-    callbackUint32(table.rows.length, `callback response table ${name} row count`);
-    if (table.rows.length !== 0 && rowByteLength === 0) {
+    const rowsPath = `callback response table ${name} rows`;
+    const sourceRows = callbackDataProperty(record, "rows", tablePath);
+    const rowCount = callbackArrayLength(sourceRows, rowsPath);
+    callbackUint32(rowCount, `callback response table ${name} row count`);
+    reserveCallbackResponseFields(budget, rowCount);
+    if (rowCount !== 0 && rowByteLength === 0) {
       throw new RangeError(
         `callback response table ${name} cannot contain zero-width rows`,
       );
     }
     reserveCallbackResponseBytes(
       budget,
-      BigInt(rowByteLength) * BigInt(table.rows.length),
+      BigInt(rowByteLength) * BigInt(rowCount),
     );
-    const rows = Array.from(table.rows, (row: Uint8Array, rowIndex: number) => {
+    const sourceRowSnapshot = snapshotCallbackArray(
+      sourceRows,
+      rowsPath,
+      rowCount,
+    );
+    const rows = Array.from(sourceRowSnapshot, (row, rowIndex) => {
       const snapshot = boundedCallbackSnapshot(
-        row,
+        row as Uint8Array,
         `callback response table ${name} row ${rowIndex}`,
       );
       if (snapshot.byteLength !== rowByteLength) {
@@ -502,23 +637,27 @@ function snapshotTables(
 }
 
 function snapshotXrfcValues(
-  values: readonly RfcCallbackXrfcValue[] | undefined,
-  budget: { retainedBytes: bigint },
+  values: unknown,
+  budget: CallbackResponseBudget,
 ): readonly RfcCallbackXrfcValue[] {
   if (values === undefined) return Object.freeze([]);
-  if (!Array.isArray(values)) {
-    throw new TypeError("callback response xRFC parameters must be an array");
-  }
+  const entryCount = callbackArrayLength(
+    values,
+    "callback response xRFC parameters",
+  );
+  reserveCallbackResponseFields(budget, entryCount * 2);
+  const entries = snapshotCallbackArray(
+    values,
+    "callback response xRFC parameters",
+    entryCount,
+  );
   const names = new Set<string>();
-  return Object.freeze(Array.from(values, (entry, index) => {
-    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-      throw new TypeError(
-        `callback response xRFC parameters[${index}] must be an object`,
-      );
-    }
+  return Object.freeze(Array.from(entries, (entry, index) => {
+    const entryPath = `callback response xRFC parameters[${index}]`;
+    const record = callbackRecord(entry, entryPath, ["name", "value"]);
     const name = callbackName(
-      entry.name,
-      `callback response xRFC parameters[${index}].name`,
+      callbackDataProperty(record, "name", entryPath) as string,
+      `${entryPath}.name`,
       30,
     );
     if (names.has(name)) {
@@ -526,9 +665,13 @@ function snapshotXrfcValues(
     }
     names.add(name);
     const value = boundedCallbackSnapshot(
-      entry.value,
+      callbackDataProperty(record, "value", entryPath) as Uint8Array,
       `callback response xRFC parameter ${name} value`,
       budget,
+    );
+    reserveCallbackResponseFields(
+      budget,
+      Math.ceil(value.byteLength / CLASSIC_XRFC_XML_CHUNK_LENGTH),
     );
     const rootName = decodeRecursiveXrfcParameterName(value);
     if (rootName !== name) {
@@ -553,35 +696,39 @@ export function encodeCpicRfcCallbackResponse(
   response: RfcCallbackResponse,
   requestedOutputs?: readonly string[],
 ): Buffer {
-  if (typeof response !== "object" || response === null || Array.isArray(response)) {
-    throw new TypeError("callback response must be an object");
-  }
-  const exception = Object.getOwnPropertyDescriptor(response, "exception");
-  if (exception !== undefined) {
-    if (!("value" in exception) || typeof exception.value !== "string") {
+  const responseSnapshot = callbackRecord(
+    response,
+    "callback response",
+    ["exports", "tables", "xrfcParameters", "exception"],
+  );
+  if (Object.hasOwn(responseSnapshot, "exception")) {
+    const exception = responseSnapshot.exception;
+    if (typeof exception !== "string") {
       throw new TypeError("callback response exception must be an own string value");
     }
     for (const key of ["exports", "tables", "xrfcParameters"] as const) {
-      const conflicting = Object.getOwnPropertyDescriptor(response, key);
-      if (
-        conflicting !== undefined &&
-        (!("value" in conflicting) || conflicting.value !== undefined)
-      ) {
+      if (Object.hasOwn(responseSnapshot, key) && responseSnapshot[key] !== undefined) {
         throw new Error(
           `callback exception response must not include ${key}`,
         );
       }
     }
-    return encodeCpicRfcCallbackException(exception.value);
+    return encodeCpicRfcCallbackException(exception);
   }
-  const budget = { retainedBytes: 0n };
+  const budget: CallbackResponseBudget = {
+    retainedBytes: 0n,
+    fieldCount: 2,
+  };
   const exports = snapshotNamedValues(
-    response.exports,
+    responseSnapshot.exports,
     "callback response exports",
     budget,
   );
-  const tables = snapshotTables(response.tables, budget);
-  const xrfcParameters = snapshotXrfcValues(response.xrfcParameters, budget);
+  const tables = snapshotTables(responseSnapshot.tables, budget);
+  const xrfcParameters = snapshotXrfcValues(
+    responseSnapshot.xrfcParameters,
+    budget,
+  );
   const names = new Set(exports.map((entry) => entry.name));
   for (const table of tables) {
     if (names.has(table.name)) {
@@ -596,10 +743,23 @@ export function encodeCpicRfcCallbackResponse(
     names.add(parameter.name);
   }
   if (requestedOutputs !== undefined) {
-    if (!Array.isArray(requestedOutputs)) {
-      throw new TypeError("callback requested outputs must be an array");
+    const requested = new Set<string>();
+    for (
+      const [index, value] of snapshotCallbackArray(
+        requestedOutputs,
+        "callback requested outputs",
+      ).entries()
+    ) {
+      const name = callbackName(
+        value as string,
+        `callback requested outputs[${index}]`,
+        30,
+      );
+      if (requested.has(name)) {
+        throw new Error(`callback requested outputs repeats ${name}`);
+      }
+      requested.add(name);
     }
-    const requested = new Set(requestedOutputs);
     for (const name of names) {
       if (!requested.has(name)) {
         throw new Error(
