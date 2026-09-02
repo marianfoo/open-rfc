@@ -17,6 +17,33 @@ that surface is released.
   so unsupported RFC-proxy requests fail closed instead of silently selecting a
   direct connection.
 
+## [0.2.4](https://github.com/marianfoo/open-rfc/compare/v0.2.3...v0.2.4) (2026-09-02)
+
+
+### Features
+
+* add bounded fast serializer decoding ([#18](https://github.com/marianfoo/open-rfc/issues/18)) ([fdfc7f3](https://github.com/marianfoo/open-rfc/commit/fdfc7f33ec46fc3a54200e1f223d8442b4ebc915))
+* add compressed fast serializer scalar items ([#23](https://github.com/marianfoo/open-rfc/issues/23)) ([a0f5fe4](https://github.com/marianfoo/open-rfc/commit/a0f5fe4d15a6e5367c81bbca51e192ab2bf01400))
+* add fast serializer encoding primitives ([#21](https://github.com/marianfoo/open-rfc/issues/21)) ([5623d2b](https://github.com/marianfoo/open-rfc/commit/5623d2bd378158829d0e955af7f23d9d6ed58c8a))
+* add fast serializer scalar parameter codec ([#22](https://github.com/marianfoo/open-rfc/issues/22)) ([553248a](https://github.com/marianfoo/open-rfc/commit/553248a61841ddb79b4b3837aefbea57ded1460b))
+* add MYSAPSSO2 ticket authentication ([#24](https://github.com/marianfoo/open-rfc/issues/24)) ([793a71b](https://github.com/marianfoo/open-rfc/commit/793a71bf602caddaf29b4acb53deccd16a692c0d))
+* name callback xRFC inputs ([#33](https://github.com/marianfoo/open-rfc/issues/33)) ([0156e58](https://github.com/marianfoo/open-rfc/commit/0156e5854a0d5f7910e4c81745e8421facedb124))
+* ping modern pinned connections ([#31](https://github.com/marianfoo/open-rfc/issues/31)) ([2246644](https://github.com/marianfoo/open-rfc/commit/224664494477d5261cd662720b61ba6fd44b61a1))
+* return callback xRFC outputs ([#34](https://github.com/marianfoo/open-rfc/issues/34)) ([14660b2](https://github.com/marianfoo/open-rfc/commit/14660b273655ec42352166fc4e631412f44996fb))
+* return declared RFC callback exceptions ([#28](https://github.com/marianfoo/open-rfc/issues/28)) ([949dd30](https://github.com/marianfoo/open-rfc/commit/949dd307acce90eff5b091d6307454defdc839eb))
+* support bounded RFC callbacks and wrapped XSTRINGs ([#25](https://github.com/marianfoo/open-rfc/issues/25)) ([fe20c1e](https://github.com/marianfoo/open-rfc/commit/fe20c1edae21c6c9e54c19db26de68cec49ea542))
+
+
+### Bug Fixes
+
+* accept included structure field positions ([#26](https://github.com/marianfoo/open-rfc/issues/26)) ([e91584a](https://github.com/marianfoo/open-rfc/commit/e91584a838990e74020028b56f99af397c3eb79e))
+* bound callback response values ([#30](https://github.com/marianfoo/open-rfc/issues/30)) ([674628a](https://github.com/marianfoo/open-rfc/commit/674628a0965b0e50cd55f24865d6e584ac756079))
+* classify rich NetWeaver logon errors ([#20](https://github.com/marianfoo/open-rfc/issues/20)) ([0b326de](https://github.com/marianfoo/open-rfc/commit/0b326de980133e355add752cc502a82b18cd3211))
+* constrain callback response outputs ([#32](https://github.com/marianfoo/open-rfc/issues/32)) ([8525868](https://github.com/marianfoo/open-rfc/commit/852586807a36e6abc41f11924433083c113085ac))
+* expand compressed callback table rows ([#29](https://github.com/marianfoo/open-rfc/issues/29)) ([f3d8c91](https://github.com/marianfoo/open-rfc/commit/f3d8c916c86437976b378408047bef8303abc412))
+* harden callback response snapshots ([#35](https://github.com/marianfoo/open-rfc/issues/35)) ([b9996a3](https://github.com/marianfoo/open-rfc/commit/b9996a38481b0cec662d27a196d8681534bf879a))
+* resolve legacy table type row structures ([#27](https://github.com/marianfoo/open-rfc/issues/27)) ([68b438b](https://github.com/marianfoo/open-rfc/commit/68b438b04871e88a8b5c393c21ae9616774a2d22))
+
 ## [0.2.3](https://github.com/marianfoo/open-rfc/compare/v0.2.2...v0.2.3) (2026-08-10)
 
 
