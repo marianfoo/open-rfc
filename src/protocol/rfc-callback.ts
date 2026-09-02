@@ -49,10 +49,12 @@ export interface RfcCallbackRequest {
   readonly xrfcParameters: readonly RfcCallbackXrfcParameter[];
 }
 
-/** Raw classic-RFC values returned to one server-initiated callback. */
+/** Raw classic-RFC values or one declared exception returned to a callback. */
 export interface RfcCallbackResponse {
   readonly exports?: readonly RfcCallbackNamedValue[];
   readonly tables?: readonly RfcCallbackTable[];
+  /** Mutually exclusive with exports and tables. */
+  readonly exception?: string;
 }
 
 export interface RfcCallbackContext {
@@ -424,6 +426,24 @@ export function encodeCpicRfcCallbackResponse(
 ): Buffer {
   if (typeof response !== "object" || response === null || Array.isArray(response)) {
     throw new TypeError("callback response must be an object");
+  }
+  const exception = Object.getOwnPropertyDescriptor(response, "exception");
+  if (exception !== undefined) {
+    if (!("value" in exception) || typeof exception.value !== "string") {
+      throw new TypeError("callback response exception must be an own string value");
+    }
+    for (const key of ["exports", "tables"] as const) {
+      const conflicting = Object.getOwnPropertyDescriptor(response, key);
+      if (
+        conflicting !== undefined &&
+        (!("value" in conflicting) || conflicting.value !== undefined)
+      ) {
+        throw new Error(
+          `callback exception response must not include ${key}`,
+        );
+      }
+    }
+    return encodeCpicRfcCallbackException(exception.value);
   }
   const exports = snapshotNamedValues(response.exports, "callback response exports");
   const tables = snapshotTables(response.tables);

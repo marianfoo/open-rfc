@@ -47,6 +47,7 @@ test("services multiple DESTINATION BACK callbacks before the outer response", a
       kind: "callbacks",
       requests: [
         callbackRequest("STFC_CONNECTION", "one"),
+        callbackRequest("Z_DECLARED_CALLBACK", "declared"),
         callbackRequest("Z_UNKNOWN_CALLBACK", "two"),
       ],
       final: { kind: "fields", fields: successfulRegularFields() },
@@ -74,6 +75,10 @@ test("services multiple DESTINATION BACK callbacks before the outer response", a
           exports: [{ name: "ECHOTEXT", value: imported.value }],
         };
       },
+      Z_DECLARED_CALLBACK(_request, context) {
+        assert.equal(context.callbackIndex, 2);
+        return { exception: "NO_AUTHORITY" };
+      },
     },
   });
   await session.logonAndPing({
@@ -89,7 +94,7 @@ test("services multiple DESTINATION BACK callbacks before the outer response", a
   );
   assert.deepEqual(output, {});
   assert.deepEqual(seen, ["one"]);
-  assert.equal(callbackResponses.length, 2);
+  assert.equal(callbackResponses.length, 3);
   assert.equal(callbackResponses[0]!.success, true);
   assert.equal(
     decodeClassicRfcResult(callbackResponses[0]!.fields)
@@ -99,6 +104,11 @@ test("services multiple DESTINATION BACK callbacks before the outer response", a
   assert.equal(callbackResponses[1]!.success, false);
   assert.equal(
     callbackResponses[1]!.envelope.facts.exceptionKey,
+    "NO_AUTHORITY",
+  );
+  assert.equal(callbackResponses[2]!.success, false);
+  assert.equal(
+    callbackResponses[2]!.envelope.facts.exceptionKey,
     "FU_NOT_FOUND",
   );
   assert.equal(peer.regularRequestCount(0), 1);

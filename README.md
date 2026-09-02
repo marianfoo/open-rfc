@@ -232,10 +232,11 @@ npm record identify the released source and package.
   part of the live-qualified beta support contract yet.
 - Server-initiated RFC calls made with ABAP `DESTINATION 'BACK'` are an
   implemented preview for classic client calls. Configure raw synchronous
-  handlers through `clientOptions.callbacks`; unknown functions receive
-  `FU_NOT_FOUND`, malformed callback traffic retires the session, and one outer
-  call is limited to 64 callbacks. This path is protocol- and scripted-socket
-  tested but has not been live-qualified by this TypeScript implementation.
+  handlers through `clientOptions.callbacks`; handlers can return a named
+  declared exception, unknown functions receive `FU_NOT_FOUND`, malformed
+  callback traffic retires the session, and one outer call is limited to 64
+  callbacks. This path is protocol- and scripted-socket tested but has not been
+  live-qualified by this TypeScript implementation.
 - WebSocket RFC business calls, Cloud Connector principal propagation, SNC,
   and X.509 are not supported and fail closed before business I/O when their
   required provider or authentication capability is absent.
