@@ -263,6 +263,68 @@ test("rejects malformed callback grammar and unsafe handler tables", () => {
 
   assert.throws(
     () => encodeCpicRfcCallbackResponse({ exports: Array(1) }),
-    /must be an object/u,
+    /dense array/u,
+  );
+});
+
+test("rejects unstable callback response graphs without invoking accessors", () => {
+  let topLevelRead = false;
+  const accessorResponse = {};
+  Object.defineProperty(accessorResponse, "exports", {
+    enumerable: true,
+    get() {
+      topLevelRead = true;
+      return [];
+    },
+  });
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse(accessorResponse as never),
+    /exports must be an own data property/u,
+  );
+  assert.equal(topLevelRead, false);
+
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse(new Proxy({}, {}) as never),
+    /plain object/u,
+  );
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({ trace: true } as never),
+    /unknown field trace/u,
+  );
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      exports: [{ name: "VALUE", value: Buffer.alloc(0), extra: true }],
+    } as never),
+    /unknown field extra/u,
+  );
+
+  let rowRead = false;
+  const rows = [Buffer.of(1)];
+  Object.defineProperty(rows, 0, {
+    get() {
+      rowRead = true;
+      return Buffer.of(1);
+    },
+  });
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      tables: [{ name: "ITEMS", rowByteLength: 1, rows }],
+    }),
+    /rows\[0\] must be an own data property/u,
+  );
+  assert.equal(rowRead, false);
+
+  const exportsWithExtraKey = [{ name: "VALUE", value: Buffer.alloc(0) }];
+  Object.defineProperty(exportsWithExtraKey, "extra", { value: true });
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({
+      exports: exportsWithExtraKey,
+    }),
+    /dense array without extra keys/u,
+  );
+
+  assert.throws(
+    () => encodeCpicRfcCallbackResponse({ exports: Array(50_000) }),
+    /response fields exceed 100000/u,
   );
 });
