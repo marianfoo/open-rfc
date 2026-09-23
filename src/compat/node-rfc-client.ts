@@ -124,7 +124,7 @@ export const pooledClientClaim = Symbol("open-rfc pooled client claim");
 
 // The packed ESM/CJS consumer contract binds this value to package.json.
 // Release Please updates this extra file in the public release PR.
-const OPEN_RFC_PACKAGE_VERSION = "0.2.3"; // x-release-please-version
+const OPEN_RFC_PACKAGE_VERSION = "0.2.4"; // x-release-please-version
 
 export const environment = Object.freeze({
   platform: Object.freeze({ name: platform(), arch: arch(), release: release() }),
