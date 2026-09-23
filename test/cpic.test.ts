@@ -550,6 +550,37 @@ test("encodes a ticket credential in place of the password field", () => {
   );
 });
 
+test("encodes numeric and lowercase SAP language keys verbatim", () => {
+  const base = {
+    client: "001",
+    user: "RFCUSR",
+    password: "secret",
+    clientAddress: "127.0.0.1",
+    partnerHostName: "host.example.test",
+    destination: "127.0.0.1",
+    programName: "open-rfc",
+    sessionId: Buffer.alloc(16),
+    passwordSeed: 1,
+  };
+  for (const language of "0123456789aAbBcCdDiIE") {
+    const encoded = encodeCpicInitialLogonRequest({ ...base, language });
+    const chain = decodeCpicFieldChainPrefix(
+      encoded.subarray(18),
+      CpicTag.Start,
+      CpicTag.End,
+    ).fields;
+    const languageField = chain.find(({ tag }) => tag === CpicTag.Language);
+    assert.ok(languageField);
+    assert.deepEqual(languageField.value, Buffer.from(language, "ascii"));
+  }
+  for (const language of ["", "EN", " ", "\0", "\n", "1\n", "&", ";", "둮", "é"]) {
+    assert.throws(
+      () => encodeCpicInitialLogonRequest({ ...base, language }),
+      /language must contain one ASCII letter or digit/u,
+    );
+  }
+});
+
 test("rejects malformed initial logon fields and identity bounds", () => {
   const base = {
     client: "001",

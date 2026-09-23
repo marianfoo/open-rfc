@@ -127,7 +127,7 @@ closed.
 | `sysnr` | Optional one- or two-digit system number; defaults to `"00"`. |
 | `gwhost` | Optional gateway TCP host while `ashost` remains the CPIC application-server identity. |
 | `gwserv` / `port` | Optional gateway service or TCP port. Default is `33NN` from `sysnr`; `gwserv` also accepts `sapgwNN`. |
-| `lang` | Optional uppercase SAP one-character code or ISO language code; defaults to SAP language `E`. |
+| `lang` | Optional case-sensitive SAP key (`E`, `1`, `a`) or case-insensitive ISO code (`EN`, `ZH`, `AF`); defaults to `E`. Logon currently supports ASCII letters and digits only. |
 | `cpic_streaming` | Optional `"disabled"` (default) or explicitly enabled `"enabled"`. |
 | `saprouter` | Implemented preview. The scoped first beta does not support this route even when the syntax validates and a connection succeeds. |
 
@@ -161,7 +161,7 @@ otherwise keep it disabled and use compact requests.
 | `user`, `passwd` | Required together for password logon to the selected application server. |
 | `user`, `mysapsso2` | Preview alternative ticket logon; `passwd` must be absent. |
 | `msserv` | Optional TCP service or port. Without it, the resolver uses `sapms<SID>`. |
-| `lang` | Optional uppercase SAP one-character code or ISO language code; defaults to SAP language `E`. |
+| `lang` | Optional case-sensitive SAP key (`E`, `1`, `a`) or case-insensitive ISO code (`EN`, `ZH`, `AF`); defaults to `E`. Logon currently supports ASCII letters and digits only. |
 
 The message-server route is implemented and tested offline, but it is not
 supported by this release. It leaves both legs unencrypted and trusts the

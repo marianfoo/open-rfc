@@ -1093,8 +1093,9 @@ export function encodeCpicInitialLogonRequest(
   if (!/^\d{3}$/.test(input.client)) {
     throw new RangeError("client must contain exactly three ASCII digits");
   }
-  if (!/^[A-Za-z]$/.test(input.language)) {
-    throw new RangeError("language must contain one ASCII letter");
+  // SAP uses numeric keys too: Chinese = 1, Thai = 2, Korean = 3.
+  if (!/^[A-Za-z0-9]$/.test(input.language)) {
+    throw new RangeError("language must contain one ASCII letter or digit");
   }
   const kernelRelease = input.kernelRelease ?? "754";
   if (!/^\d{3}$/.test(kernelRelease)) {
@@ -1145,7 +1146,8 @@ export function encodeCpicInitialLogonRequest(
       { tag: credentialTag, value: credential },
       {
         tag: CpicTag.Language,
-        value: Buffer.from(input.language.toUpperCase(), "ascii"),
+        // Uppercasing a SAP key can select a different language.
+        value: Buffer.from(input.language, "ascii"),
       },
       { tag: CpicTag.UnicodeIndicator, value: Buffer.of(1) },
       {

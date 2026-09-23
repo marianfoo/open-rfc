@@ -202,9 +202,12 @@ export function languageSapToIso(language: string): string {
 }
 
 function normalizeDirectConnectionLanguage(language: string): string {
-  // Direct RFC parameters traditionally carry a one-character SAP language.
-  // Keep that form accepted without weakening the public ISO conversion API.
-  return /^[A-Z0-9]$/u.test(language) ? language : languageIsoToSap(language);
+  // SAP keys are case-sensitive (a = Afrikaans, A = Arabic); ISO codes are not.
+  // Recognize SAP keys before applying the public ISO conversion rules.
+  if (Object.hasOwn(SAP_TO_ISO_LANGUAGE, language)) {
+    return language;
+  }
+  return languageIsoToSap(language);
 }
 
 function parameter(

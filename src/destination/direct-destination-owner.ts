@@ -493,7 +493,7 @@ function snapshotConnection(
   if (!/^\d{3}$/u.test(client)) {
     throw new RangeError("connection.client must contain three decimal digits");
   }
-  if (!/^[A-Z0-9]$/u.test(language)) {
+  if (!/^[A-Za-z0-9]$/u.test(language)) {
     throw new RangeError("connection.language must be one SAP language code");
   }
   if (cpicStreaming !== "disabled" && cpicStreaming !== "enabled") {

@@ -14,6 +14,12 @@
 | `mysapsso2` | injected secret | Preview alternative to `passwd`: a Base64 SAP logon ticket, optionally percent-escaped or using the cookie `/` to `!` substitution. |
 | `lang` | `EN` | Optional SAP or ISO language code. |
 
+ISO codes are case-insensitive: `ZH` and `zh` both select SAP key `1`.
+Single-character SAP keys are case-sensitive: `a` selects Afrikaans, while
+`A` selects Arabic. Logon currently supports ASCII letter and digit keys;
+other keys returned by the language conversion helpers remain unsupported.
+See [SAP's LANG parameter reference](https://help.sap.com/saphelp_snc700_ehp04/helpdata/en/48/a88d7f5134307de10000000a42189b/content.htm).
+
 ```js
 const connectionParameters = {
   ashost: process.env.SAP_ASHOST,
