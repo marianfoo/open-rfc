@@ -292,8 +292,8 @@
     },
     {
       "path": "dist/src/protocol/rfc-error-envelope.d.ts",
-      "bytes": 4595,
-      "sha256": "bf4847844d175b1e77c5a190c7f0a0fc27579f2071a1b04173436f697fa25a0d"
+      "bytes": 4750,
+      "sha256": "5dc17dc4a4364e4fadf2ac063d0e565b185e4ab3f64263788062e07281c4c225"
     },
     {
       "path": "dist/src/protocol/rfcpro.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "44d06744feddd157e98fad850b4ab1173108e44c79c54547ad64753ed678bdb9"
+  "aggregateSha256": "4c29183e4b16de0ece861877bafebdf24506467dd088bc0db296a55a6692b9dc"
 }
