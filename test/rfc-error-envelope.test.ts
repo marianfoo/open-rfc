@@ -49,6 +49,56 @@ function semanticFacts(
   return facts;
 }
 
+test("decodes explicitly selected ASCII facts without changing wire-byte limits", () => {
+  const field = (tag: number, value: string): RfcErrorEnvelopeField => ({
+    tag, value: Buffer.from(value, "ascii"),
+  });
+  const fields = [
+    field(RfcErrorTag.ErrorMessage, "Denied   "),
+    field(RfcErrorTag.MessageClass, "ZZ"),
+    field(RfcErrorTag.MessageType, "E"),
+    field(RfcErrorTag.MessageNumber, "123"),
+    endField(),
+  ];
+  const decoded = decodeRfcErrorEnvelope(fields, { textEncoding: "ascii" });
+  assert.equal(decoded.outcome, "abapMessage");
+  assert.equal(decoded.facts.plainText, "Denied");
+  assert.equal(decoded.facts.messageClass, "ZZ");
+  assert.equal(decoded.facts.messageType, "E");
+  assert.equal(decoded.facts.messageNumber, "123");
+  assert.equal(decoded.facts.provenance[0]?.byteLength, 9);
+  for (const [limits, code] of [
+    [{ maxTextByteLength: 8 }, "RFC_ERROR_ENVELOPE_TEXT_TOO_LARGE"],
+    [{ maxTotalTextByteLength: 14 }, "RFC_ERROR_ENVELOPE_TOTAL_TEXT_TOO_LARGE"],
+  ] as const) {
+    expectProtocolError(
+      () => decodeRfcErrorEnvelope(fields, { textEncoding: "ascii", ...limits }),
+      code,
+    );
+  }
+});
+
+test("ASCII error decoding refuses NUL and never masks a high bit", () => {
+  for (let byte = 128; byte <= 255; byte += 1) {
+    expectProtocolError(
+      () => decodeRfcErrorEnvelope([
+        rawField(RfcErrorTag.ErrorMessage, Buffer.of(byte)), endField(),
+      ], { textEncoding: "ascii" }),
+      "RFC_ERROR_ENVELOPE_NON_ASCII_TEXT",
+    );
+  }
+  expectProtocolError(
+    () => decodeRfcErrorEnvelope([
+      rawField(RfcErrorTag.ErrorMessage, Buffer.of(65, 0)), endField(),
+    ], { textEncoding: "ascii" }),
+    "RFC_ERROR_ENVELOPE_EMBEDDED_NUL",
+  );
+  assert.throws(
+    () => decodeRfcErrorEnvelope([endField()], { textEncoding: "unknown" as never }),
+    /textEncoding must be utf16le or ascii/u,
+  );
+});
+
 test("normalizes every classic declared-exception fact without aliasing V1 to text", () => {
   const fields = [
     textField(RfcErrorTag.MessageClass, "SR"),

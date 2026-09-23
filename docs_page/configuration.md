@@ -20,6 +20,11 @@ Single-character SAP keys are case-sensitive: `a` selects Afrikaans, while
 other keys returned by the language conversion helpers remain unsupported.
 See [SAP's LANG parameter reference](https://help.sap.com/saphelp_snc700_ehp04/helpdata/en/48/a88d7f5134307de10000000a42189b/content.htm).
 
+A valid language key does not guarantee the backend permits logon in that
+language. Such a rejection is reported as `RFC_LOGON_FAILURE`, not retried.
+Early single-byte logon error text currently supports ASCII only; unsupported
+encodings still fail closed. Ordinary Unicode RFC responses are unchanged.
+
 ```js
 const connectionParameters = {
   ashost: process.env.SAP_ASHOST,

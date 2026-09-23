@@ -48,7 +48,7 @@ function terminalLogonRejection(): Buffer {
       { tag: CpicTag.Destination, value: Buffer.alloc(17) },
       { tag: CpicTag.Program, value: Buffer.alloc(8) },
       { tag: CpicTag.ResponseStart, value: Buffer.alloc(0) },
-      text(CpicTag.AbapErrorMessage, "Synthetic logon denial"),
+      { tag: CpicTag.AbapErrorMessage, value: Buffer.from("Synthetic logon denial", "ascii") },
       end(),
     ]),
     Buffer.from("ffff", "hex"),
