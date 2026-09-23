@@ -141,8 +141,10 @@ export interface RfcErrorEnvelope {
 }
 
 export interface RfcErrorEnvelopeDecodeOptions {
+  /** Initial logon may reject before Unicode text has been negotiated. */
+  readonly textEncoding?: "utf16le" | "ascii";
   readonly maxTextByteLength?: number;
-  /** Aggregate limit across all decoded UTF-16LE error facts. */
+  /** Aggregate limit across all encoded error facts. */
   readonly maxTotalTextByteLength?: number;
   readonly maxControlByteLength?: number;
   /** Aggregate limit across all copied unresolved/control values. */
@@ -162,6 +164,7 @@ export type RfcErrorEnvelopeReasonCode =
   | "RFC_ERROR_ENVELOPE_TEXT_TOO_LARGE"
   | "RFC_ERROR_ENVELOPE_TOTAL_TEXT_TOO_LARGE"
   | "RFC_ERROR_ENVELOPE_ODD_UTF16_LENGTH"
+  | "RFC_ERROR_ENVELOPE_NON_ASCII_TEXT"
   | "RFC_ERROR_ENVELOPE_EMBEDDED_NUL"
   | "RFC_ERROR_ENVELOPE_UNPAIRED_SURROGATE"
   | "RFC_ERROR_ENVELOPE_EMPTY_DISCRIMINATOR"
@@ -269,6 +272,24 @@ function decodeStrictUtf16Le(
   return bytes.toString("utf16le").replace(/ +$/u, "");
 }
 
+function decodeStrictAscii(value: Uint8Array, tag: number): string {
+  for (const byte of value) {
+    if (byte === 0) {
+      protocolError(
+        "RFC_ERROR_ENVELOPE_EMBEDDED_NUL",
+        `RFCPRO error fact ${tagText(tag)} contains NUL`,
+      );
+    }
+    if (byte > 0x7f) {
+      protocolError(
+        "RFC_ERROR_ENVELOPE_NON_ASCII_TEXT",
+        `RFCPRO error fact ${tagText(tag)} contains unsupported non-ASCII text`,
+      );
+    }
+  }
+  return Buffer.from(value).toString("ascii").replace(/ +$/u, "");
+}
+
 function freezeProvenance(
   provenance: RfcErrorFactProvenance[],
 ): readonly RfcErrorFactProvenance[] {
@@ -321,6 +342,10 @@ export function decodeRfcErrorEnvelope(
   fields: readonly RfcErrorEnvelopeField[],
   options: RfcErrorEnvelopeDecodeOptions = {},
 ): RfcErrorEnvelope {
+  const textEncoding = options.textEncoding ?? "utf16le";
+  if (textEncoding !== "utf16le" && textEncoding !== "ascii") {
+    throw new RangeError("textEncoding must be utf16le or ascii");
+  }
   const maxTextByteLength =
     options.maxTextByteLength ?? DEFAULT_MAX_RFC_ERROR_TEXT_BYTE_LENGTH;
   const maxTotalTextByteLength =
@@ -449,7 +474,9 @@ export function decodeRfcErrorEnvelope(
       }
       totalTextByteLength += value.byteLength;
       present.add(tag);
-      values.set(tag, decodeStrictUtf16Le(value, tag, maxTextByteLength));
+      values.set(tag, textEncoding === "ascii"
+        ? decodeStrictAscii(value, tag)
+        : decodeStrictUtf16Le(value, tag, maxTextByteLength));
       provenance.push(Object.freeze({ tag, ordinal, byteLength: value.byteLength }));
       continue;
     }

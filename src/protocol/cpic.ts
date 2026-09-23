@@ -1356,8 +1356,16 @@ export function decodeCpicInitialLogonResponse(
     }
     let envelope: RfcErrorEnvelope;
     try {
+      // Early rejections can precede Unicode negotiation. The validated
+      // code-page text coordinate is four bytes in a single-byte preamble,
+      // eight in a Unicode preamble. Do not guess encoding from error text;
+      // single-byte decoding admits only ASCII, not arbitrary legacy pages.
+      const codePage = decoded.fields.find((field) =>
+        field.tag === CpicTag.SystemCodePage
+      )!;
       envelope = decodeRfcErrorEnvelope(decoded.fields, {
         additionalAllowedTags: preamble.allowedTags,
+        textEncoding: codePage.value.byteLength === 4 ? "ascii" : "utf16le",
       });
     } catch (error) {
       registerInitialCpicLogonParseStage("error-envelope", error);

@@ -1582,7 +1582,7 @@ test("classifies the rich NetWeaver 7.50 terminal logon-error envelope", () => {
     { tag: CpicTag.ResponseStart, value: Buffer.alloc(0) },
     {
       tag: CpicTag.AbapErrorMessage,
-      value: Buffer.from("Synthetic logon denial", "utf16le"),
+      value: Buffer.from("Synthetic logon denial", "ascii"),
     },
     { tag: CpicTag.End, value: Buffer.alloc(0) },
   ]);
@@ -1619,7 +1619,7 @@ test("classifies the rich NetWeaver 7.50 terminal logon-error envelope", () => {
       { tag: CpicTag.Destination, byteLength: 17 },
       { tag: CpicTag.Program, byteLength: 8 },
       { tag: CpicTag.ResponseStart, byteLength: 0 },
-      { tag: CpicTag.AbapErrorMessage, byteLength: 44 },
+      { tag: CpicTag.AbapErrorMessage, byteLength: 22 },
       { tag: CpicTag.End, byteLength: 0 },
     ],
   });
@@ -1673,7 +1673,7 @@ test("bounds every endpoint-controlled text coordinate in rich logon-error pream
         { tag: CpicTag.ResponseStart, value: Buffer.alloc(0) },
         {
           tag: CpicTag.AbapErrorMessage,
-          value: Buffer.from("Synthetic logon denial", "utf16le"),
+          value: Buffer.from("Synthetic logon denial", "ascii"),
         },
         { tag: CpicTag.End, value: Buffer.alloc(0) },
       ]),
