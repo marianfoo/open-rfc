@@ -250,6 +250,11 @@ implemented preview routes remain explicitly outside the beta support contract.
 
 ## Compatibility and guides
 
+Optional classic `TABLES` parameters remain active for output when their initial
+rows are omitted; they are sent with an empty initial table. Use `notRequested`
+to suppress a table explicitly. Optional import/changing inputs remain inactive
+until supplied or explicitly activated.
+
 - [Use open-rfc as an archived `node-rfc` replacement](#use-open-rfc-as-a-node-rfc-replacement), including the
   install-time alias and lifecycle differences.
 - Review the [CAP compatibility boundary](#cap-compatibility-boundary) before
