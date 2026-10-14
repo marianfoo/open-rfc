@@ -268,6 +268,11 @@ serializer policy boundary.
 
 ## Compatibility and guides
 
+Optional classic `TABLES` parameters remain active for output when their initial
+rows are omitted. Omitted optional inputs are not sent. Use `notRequested`
+to suppress a table explicitly. Optional import/changing inputs remain inactive
+until supplied or explicitly activated.
+
 - [Use open-rfc as an archived `node-rfc` replacement](#use-open-rfc-as-a-node-rfc-replacement), including the
   install-time alias and lifecycle differences.
 - Review the [CAP compatibility boundary](#cap-compatibility-boundary) before

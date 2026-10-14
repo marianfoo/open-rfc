@@ -240,9 +240,8 @@ function activeInputValue(
       value: input.get(parameter.parameterName),
     });
   }
-  // NW RFC function containers start mandatory input directions active at
-  // their ABAP initial value. Optional inputs remain inactive until a value is
-  // supplied or the caller explicitly activates them.
+  // Optional inputs retain their backend defaults until supplied or explicitly
+  // activated. TABLES output is requested independently of its input value.
   if (parameter.optional && !activated.has(parameter.parameterName)) {
     return Object.freeze({ present: false });
   }
@@ -261,11 +260,8 @@ function requestsOutput(
   deactivated: ReadonlySet<string>,
 ): boolean {
   if (deactivated.has(parameter.parameterName)) return false;
-  if (parameter.parameterClass === "E") return true;
-  if (
-    parameter.parameterClass === "C" ||
-    parameter.parameterClass === "T"
-  ) {
+  if (parameter.parameterClass === "E" || parameter.parameterClass === "T") return true;
+  if (parameter.parameterClass === "C") {
     return activeInputValue(
       parameter,
       input,
