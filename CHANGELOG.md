@@ -17,6 +17,16 @@ that surface is released.
   so unsupported RFC-proxy requests fail closed instead of silently selecting a
   direct connection.
 
+## [0.2.5](https://github.com/marianfoo/open-rfc/compare/v0.2.4...v0.2.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* allow classic recursive calls when basXML is unsupported ([#40](https://github.com/marianfoo/open-rfc/issues/40)) ([2cc0b4f](https://github.com/marianfoo/open-rfc/commit/2cc0b4f36ed31a7d3ac72002e1b5f58f312d8185))
+* decode a packed field of all zero bytes as zero ([#43](https://github.com/marianfoo/open-rfc/issues/43)) ([689a5b8](https://github.com/marianfoo/open-rfc/commit/689a5b87fb701dc6757bf5a4e3b59dff2fd62d53))
+* handle empty recursive TABLES replies and reject unsupported inputs ([#44](https://github.com/marianfoo/open-rfc/issues/44)) ([08c183c](https://github.com/marianfoo/open-rfc/commit/08c183cc114bfd2d59b2a12447874c1277b834df))
+* request optional TABLES outputs when initial rows are omitted ([#42](https://github.com/marianfoo/open-rfc/issues/42)) ([23eadd6](https://github.com/marianfoo/open-rfc/commit/23eadd63eb380303090720e4efbc29a3a090c039))
+
 ## [0.2.4](https://github.com/marianfoo/open-rfc/compare/v0.2.3...v0.2.4) (2026-09-23)
 
 
