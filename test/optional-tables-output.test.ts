@@ -60,14 +60,16 @@ function response(rows: readonly number[]): CpicField[] {
   ];
 }
 
-test("omitted optional TABLES requests output with empty initial rows", () => {
+test("omitted optional TABLES requests output without synthesizing input", () => {
   const fields = requestFields();
   assert.deepEqual(named(fields, CpicTag.RequestedOutput), ["ROWS"]);
-  assert.deepEqual(named(fields, CpicTag.TableName), ["ROWS"]);
-  const header = fields.find(field => field.tag === CpicTag.TableHeader)!;
-  assert.equal(Buffer.from(header.value).readUInt32BE(4), 0);
+  assert.deepEqual(named(fields, CpicTag.TableName), []);
   assert.deepEqual(named(fields, CpicTag.ParameterName), []);
-  assert.deepEqual(requestFields({ ROWS: [] }), fields);
+  const supplied = requestFields({ ROWS: [42] });
+  assert.deepEqual(named(supplied, CpicTag.RequestedOutput), ["ROWS"]);
+  assert.deepEqual(named(supplied, CpicTag.TableName), ["ROWS"]);
+  const header = supplied.find(field => field.tag === CpicTag.TableHeader)!;
+  assert.equal(Buffer.from(header.value).readUInt32BE(4), 1);
 });
 
 for (const rows of [[], [42]]) {

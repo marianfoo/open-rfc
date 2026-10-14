@@ -375,6 +375,30 @@ test("deactivated recursive parameters need neither optimized metadata nor a sup
   );
 });
 
+test("omitted optional recursive TABLES requests output without an xRFC input", () => {
+  const metadata: RfcFunctionInterface = {
+    ...METADATA,
+    parameters: [{
+      ...METADATA.parameters[0]!,
+      parameterClass: "T", parameterName: "TABLE", tableName: "Z_ROWS",
+      exid: "h", position: 3, internalLength: 12, optional: true,
+    }],
+  };
+  const request = buildClassicRfcInvocationRequest(
+    metadata, {}, new Map(), {}, graph(FUNCTION_NAME, true),
+  );
+  const fields = decodeCpicFieldChainPrefix(
+    request.subarray(4), CpicTag.ContextEnd, CpicTag.End,
+  ).fields;
+  assert.deepEqual(
+    fields.filter(field => field.tag === CpicTag.RequestedOutput)
+      .map(field => Buffer.from(field.value).toString("utf16le")),
+    ["TABLE"],
+  );
+  assert.equal(fields.some(field => field.tag === CpicTag.XRfcData), false);
+  assert.equal(fields.some(field => field.tag === CpicTag.TableName), false);
+});
+
 test("uses recursive xRFC for a class-T RFCTYPE_TABLE parameter", () => {
   const tableMetadata: RfcFunctionInterface = Object.freeze({
     ...METADATA,

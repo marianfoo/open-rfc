@@ -240,13 +240,9 @@ function activeInputValue(
       value: input.get(parameter.parameterName),
     });
   }
-  // TABLES parameters also carry output, so omission of their initial rows
-  // must not suppress the result. Optional import/changing inputs retain their
-  // backend defaults until supplied or explicitly activated.
-  if (
-    parameter.optional && parameter.parameterClass !== "T" &&
-    !activated.has(parameter.parameterName)
-  ) {
+  // Optional inputs retain their backend defaults until supplied or explicitly
+  // activated. TABLES output is requested independently of its input value.
+  if (parameter.optional && !activated.has(parameter.parameterName)) {
     return Object.freeze({ present: false });
   }
   return Object.freeze({
@@ -264,11 +260,8 @@ function requestsOutput(
   deactivated: ReadonlySet<string>,
 ): boolean {
   if (deactivated.has(parameter.parameterName)) return false;
-  if (parameter.parameterClass === "E") return true;
-  if (
-    parameter.parameterClass === "C" ||
-    parameter.parameterClass === "T"
-  ) {
+  if (parameter.parameterClass === "E" || parameter.parameterClass === "T") return true;
+  if (parameter.parameterClass === "C") {
     return activeInputValue(
       parameter,
       input,
