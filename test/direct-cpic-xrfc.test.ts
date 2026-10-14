@@ -76,7 +76,7 @@ const line: RfcStructureDefinition = Object.freeze({
 
 const structures = new Map([["Z_DEEP_T", line]]);
 
-const graph = normalizeRecursiveMetadataGraph({
+const graphInput = {
   FUNCTIONNAMES: [{
     FUNCTIONNAME: metadata.name,
     BASXML_SUPPORTED: "",
@@ -122,6 +122,12 @@ const graph = normalizeRecursiveMetadataGraph({
     PARAMTEXT: parameter.parameterText,
     OPTIONAL: "",
   })),
+};
+
+const graph = normalizeRecursiveMetadataGraph(graphInput);
+const basxmlGraph = normalizeRecursiveMetadataGraph({
+  ...graphInput,
+  FUNCTIONNAMES: graphInput.FUNCTIONNAMES.map(row => ({ ...row, BASXML_SUPPORTED: "X" })),
 });
 
 const deepStructureMetadata: RfcFunctionInterface = Object.freeze({
@@ -277,15 +283,15 @@ async function authenticatedWithSerializer(
   return session;
 }
 
-function installRecursiveMetadataDoubles(session: DirectCpicSession): void {
+function installRecursiveMetadataDoubles(session: DirectCpicSession, value = graph): void {
   Object.defineProperties(session, {
     getFunctionInterface: {
       value: async () => metadata,
     },
     getOptimizedRecursiveFunctionDescriptor: {
       value: async () => ({
-        value: graph,
-        generationToken: graph.functionIdentity!.generationToken,
+        value,
+        generationToken: value.functionIdentity!.generationToken,
       }),
     },
   });
@@ -360,7 +366,7 @@ test("direct session blocks an unclassified recursive send before exchange", asy
   t.after(() => peer.close());
   const session = await authenticatedWithSerializer(peer, "missing");
   t.after(() => session.close());
-  installRecursiveMetadataDoubles(session);
+  installRecursiveMetadataDoubles(session, basxmlGraph);
 
   await assert.rejects(
     session.invokeClassic(metadata.name, { IN: [] }),
@@ -799,3 +805,21 @@ test("invalid deep input is rejected before exchange and leaves session reusable
   await session.ping();
   assert.equal(peer.regularRequestCount(0), 1);
 });
+
+for (const entry of ["invokeClassic", "invokeClassicWithMetadata"] as const) {
+  test(`default session admits explicitly non-basXML recursive calls through ${entry}`, async (t) => {
+    const peer = await ScriptedRfcPeer.start([{
+      replies: [{ kind: "fields", fields: deepFields("<OUT><item><STR>ok</STR><XSTR>AP8=</XSTR></item></OUT>") }],
+    }]);
+    t.after(() => peer.close());
+    const session = await authenticatedWithSerializer(peer, "missing");
+    t.after(() => session.close());
+    installRecursiveMetadataDoubles(session);
+    const input = { IN: [{ STR: "request", XSTR: Buffer.of(0, 0xff) }] };
+    const result = entry === "invokeClassic"
+      ? await session.invokeClassic(metadata.name, input)
+      : await session.invokeClassicWithMetadata(metadata, input, structures, undefined, {}, graph);
+    assert.deepEqual(result, { OUT: [{ STR: "ok", XSTR: Buffer.of(0, 0xff) }] });
+    assert.equal(peer.regularRequestCount(0), 1);
+  });
+}

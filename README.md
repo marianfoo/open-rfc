@@ -240,6 +240,10 @@ npm record identify the released source and package.
 - WebSocket RFC business calls, Cloud Connector principal propagation, SNC,
   and X.509 are not supported and fail closed before business I/O when their
   required provider or authentication capability is absent.
+- Recursive calls without an explicit serializer policy use classic xRFC when
+  normalized function metadata explicitly reports no basXML support. Functions
+  with basXML support or unknown capability still require a live serializer
+  decision; basXML-required calls remain unsupported.
 - SNC, other SSO mechanisms, X.509, non-Unicode/MDMP partners, registered server
   mode, Throughput, tRFC, qRFC, bgRFC, basXML, compression, and complete NW RFC
   SDK parity are not supported.

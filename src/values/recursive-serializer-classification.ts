@@ -36,10 +36,10 @@ export interface RecursiveSerializerObservation {
 }
 
 /**
- * Explicit partner observation required before a live recursive request may
- * leave a direct CPIC session. This is deliberately separate from the graph:
- * BASXML_SUPPORTED is a capability bit, not proof of the serializer selected
- * for one concrete function/value graph.
+ * Explicit partner observation for recursive requests whose metadata does not
+ * rule out basXML. Without a policy, the direct session admits classic xRFC
+ * only when normalized metadata explicitly reports no basXML support.
+ * A configured policy remains authoritative even in that case.
  */
 export interface LiveRecursiveSerializerPolicy {
   readonly profile: LiveRecursiveSerializerProfile;
