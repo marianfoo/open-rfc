@@ -375,7 +375,7 @@ test("deactivated recursive parameters need neither optimized metadata nor a sup
   );
 });
 
-test("uses recursive xRFC for a class-T RFCTYPE_TABLE parameter", () => {
+test("rejects recursive TABLES inputs before constructing a request", () => {
   const tableMetadata: RfcFunctionInterface = Object.freeze({
     ...METADATA,
     parameters: Object.freeze([
@@ -390,29 +390,17 @@ test("uses recursive xRFC for a class-T RFCTYPE_TABLE parameter", () => {
       }),
     ]),
   });
-  const request = buildClassicRfcInvocationRequest(
-    tableMetadata,
-    { TABLE: INPUT.ROWS },
-    new Map(),
-    {},
-    graph(FUNCTION_NAME, true),
-  );
-  const fields = decodeCpicFieldChainPrefix(
-    request.subarray(4),
-    CpicTag.ContextEnd,
-    CpicTag.End,
-  ).fields;
-  assert.equal(
-    Buffer.concat(
-      fields
-        .filter(({ tag }) => tag === CpicTag.XRfcData)
-        .map(({ value }) => Buffer.from(value)),
-    ).toString("utf8"),
-    "<TABLE><item><NUMBER>3</NUMBER><RAW>yv4=</RAW></item></TABLE>",
-  );
+  for (const input of [{}, { TABLE: [] }, { TABLE: INPUT.ROWS }]) {
+    assert.throws(
+      () => buildClassicRfcInvocationRequest(
+        tableMetadata, input, new Map(), {}, graph(FUNCTION_NAME, true),
+      ),
+      /TABLE recursive TABLES input encoding is not implemented/u,
+    );
+  }
 });
 
-// Some classic peers send an empty binary TABLES envelope even when the
+// Classic TABLES replies use a binary envelope even when the
 // parameter metadata describes a recursive table, as in DDIF_FIELDINFO_GET.
 const binaryTableMetadata: RfcFunctionInterface = {
   ...METADATA,

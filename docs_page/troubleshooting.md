@@ -84,8 +84,16 @@ descriptor to make a call proceed.
   parameter direction.
 - Use decimal strings for BCD/DECF and an explicit INT8 mode where compatibility
   requires it.
-- Deep values require a serializer policy supported by the exact release;
-  basXML is not implemented.
+- Deep values use classic xRFC without a policy only when function metadata
+  explicitly says basXML is unsupported. Otherwise a serializer policy
+  supported by the exact release is required; basXML is not implemented.
+- TABLES parameters described by a table type (`EXID h`) currently support
+  only empty binary outputs. Their supplied or explicitly activated inputs
+  fail before sending. Omit optional inputs and suppress unneeded outputs
+  with `notRequested`. A nonempty binary output fails after execution and
+  retires the connection; do not automatically replay the call.
+- Requesting optional TABLES outputs can require recursive metadata lookup
+  authorization even when the application omits their inputs.
 
 Fixed CHAR/NUMC/DATE/TIME values are never silently truncated. BCD and DECF
 outputs preserve precision as strings by default. If an INT8 can exceed
