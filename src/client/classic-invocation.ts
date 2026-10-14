@@ -2167,6 +2167,12 @@ function decodeClassicRfcInvocationResultWithOwnership(
     }
     if (!requestedOutputs.has(table.name)) continue;
     if (recursiveXrfc.has(table.name)) {
+      // An empty classic TABLES envelope has no row layout to interpret.
+      // Some peers use it even when metadata selects recursive xRFC.
+      if (table.rows.length === 0) {
+        defineClassicRfcOutput(output, table.name, []);
+        continue;
+      }
       throw new Error(
         `classic RFC response returned a binary table for recursive parameter ${table.name}`,
       );
