@@ -1079,8 +1079,8 @@ test("preserves negative zero in FLOAT scalar tables and validates wrappers", ()
     resumableExceptionRowCount: 0,
   });
   const request = buildClassicRfcInvocationRequest(
-    functionMetadata,
-    { FLOAT_TABLES: [-0] },
+    { ...functionMetadata, parameters: [floats] },
+    { FLOATS: [-0] },
     new Map(),
     {},
     metadata,
@@ -1092,7 +1092,13 @@ test("preserves negative zero in FLOAT scalar tables and validates wrappers", ()
   ).fields;
   assert.equal(
     requestFields.find((field) => field.tag === CpicTag.XRfcData)?.value.toString(),
-    "<FLOAT_TABLES><item>-0</item></FLOAT_TABLES>",
+    "<FLOATS><item>-0</item></FLOATS>",
+  );
+  assert.throws(
+    () => buildClassicRfcInvocationRequest(
+      functionMetadata, { FLOAT_TABLES: [-0] }, new Map(), {}, metadata,
+    ),
+    /recursive TABLES input encoding is not implemented/u,
   );
 });
 
