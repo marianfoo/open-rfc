@@ -87,8 +87,8 @@ metadata explicitly excludes basXML and the value graph is supported.
 
 Optional TABLES outputs are requested even when their inputs are omitted,
 which can require additional recursive metadata authorization. For TABLES
-parameters described by a table type (`EXID h`), supplied or explicitly
-activated inputs are unsupported and fail before sending; only empty binary
+parameters described by a table type (`EXID h`), supplied, mandatory, or
+explicitly activated inputs are unsupported and fail before sending; only empty binary
 outputs can be decoded. A nonempty binary output fails after execution and
 retires the connection. Suppress unneeded outputs with `notRequested`; do not
 automatically replay a call after a response failure. Recursive IMPORTING and

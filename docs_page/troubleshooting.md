@@ -88,8 +88,8 @@ descriptor to make a call proceed.
   explicitly says basXML is unsupported. Otherwise a serializer policy
   supported by the exact release is required; basXML is not implemented.
 - TABLES parameters described by a table type (`EXID h`) currently support
-  only empty binary outputs. Their supplied or explicitly activated inputs
-  fail before sending. Omit optional inputs and suppress unneeded outputs
+  only empty binary outputs. Their supplied, mandatory, or explicitly activated
+  inputs fail before sending. Omit optional inputs and suppress unneeded outputs
   with `notRequested`. A nonempty binary output fails after execution and
   retires the connection; do not automatically replay the call.
 - Requesting optional TABLES outputs can require recursive metadata lookup

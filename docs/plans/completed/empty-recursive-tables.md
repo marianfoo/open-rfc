@@ -31,8 +31,8 @@ envelope and nonempty-row controls pass both before and after the fix.
 This synthetic regression does not extend the supported SAP release matrix.
 
 With PRs #40 and #42, a read-only `DDIF_FIELDINFO_GET` call returned its field
-catalog and empty fixed-values table. Explicitly supplied or activated recursive
-TABLES inputs now fail before sending, including `[]`; a serializer decision
+catalog and empty fixed-values table. Supplied, mandatory, or explicitly
+activated recursive TABLES inputs now fail before sending, including `[]`; a serializer decision
 does not make their unsupported input encoding valid. Recursive IMPORT and
 CHANGING inputs keep their existing xRFC encoding. Supporting binary input or
 nonempty binary output for these metadata shapes needs a separate row codec.

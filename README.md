@@ -255,8 +255,8 @@ Table-typed parameters require recursive metadata access; basXML-capable or
 unknown functions also require a supported serializer policy.
 
 For TABLES parameters whose metadata uses a table type (`EXID h`), only empty
-binary results are currently supported. Supplied or explicitly activated
-inputs fail before sending. A nonempty binary result fails after the function
+binary results are currently supported. Supplied, mandatory, or explicitly
+activated inputs fail before sending. A nonempty binary result fails after the function
 has executed and closes the connection; do not automatically repeat that call.
 Use `callOptions.notRequested` for outputs the application does not need.
 IMPORTING and CHANGING recursive xRFC inputs remain supported within the
