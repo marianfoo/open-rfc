@@ -962,6 +962,10 @@ export class DirectCpicSession {
     if (parameters.length === 0) return;
     const provider = this.#recursiveSerializerDecisionProvider;
     if (provider === undefined) {
+      // An explicit negative capability leaves classic xRFC as the only
+      // supported serializer. Unknown or basXML-capable functions still need
+      // a live decision; request construction validates the complete graph.
+      if (graph.functionIdentity?.remoteBasxmlSupported === false) return;
       throw new RecursiveSerializerClassificationError(
         "live-decision-required",
       );

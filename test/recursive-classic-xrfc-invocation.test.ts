@@ -399,7 +399,7 @@ test("omitted optional recursive TABLES requests output without an xRFC input", 
   assert.equal(fields.some(field => field.tag === CpicTag.TableName), false);
 });
 
-test("uses recursive xRFC for a class-T RFCTYPE_TABLE parameter", () => {
+test("rejects recursive TABLES inputs before constructing a request", () => {
   const tableMetadata: RfcFunctionInterface = Object.freeze({
     ...METADATA,
     parameters: Object.freeze([
@@ -414,24 +414,83 @@ test("uses recursive xRFC for a class-T RFCTYPE_TABLE parameter", () => {
       }),
     ]),
   });
-  const request = buildClassicRfcInvocationRequest(
-    tableMetadata,
-    { TABLE: INPUT.ROWS },
-    new Map(),
-    {},
-    graph(FUNCTION_NAME, true),
+  for (const input of [{}, { TABLE: [] }, { TABLE: INPUT.ROWS }]) {
+    assert.throws(
+      () => buildClassicRfcInvocationRequest(
+        tableMetadata, input, new Map(), {}, graph(FUNCTION_NAME, true),
+      ),
+      /TABLE recursive TABLES input encoding is not implemented/u,
+    );
+  }
+});
+
+// Classic TABLES replies use a binary envelope even when the
+// parameter metadata describes a recursive table, as in DDIF_FIELDINFO_GET.
+const binaryTableMetadata: RfcFunctionInterface = {
+  ...METADATA,
+  parameters: [{
+    ...METADATA.parameters[0]!,
+    parameterClass: "T",
+    parameterName: "TABLE",
+    tableName: "Z_ROWS",
+    exid: "h",
+    position: 3,
+    internalLength: 12,
+  }],
+};
+
+function binaryTableFields(rowCount: number, rows: readonly Buffer[] = []): CpicField[] {
+  const header = Buffer.alloc(8);
+  header.writeUInt32BE(12, 0);
+  header.writeUInt32BE(rowCount, 4);
+  return [
+    { tag: CpicTag.TableName, value: Buffer.from("TABLE", "utf16le") },
+    { tag: CpicTag.TableHeader, value: header },
+    ...rows.map(value => ({ tag: CpicTag.TableContent, value })),
+    { tag: CpicTag.End, value: Buffer.alloc(0) },
+  ];
+}
+
+function decodeBinaryTable(fields: readonly CpicField[], options = {}) {
+  return decodeClassicRfcInvocationResult(
+    binaryTableMetadata, fields, new Map(), options, graph(FUNCTION_NAME, true),
   );
-  const fields = decodeCpicFieldChainPrefix(
-    request.subarray(4),
-    CpicTag.ContextEnd,
-    CpicTag.End,
-  ).fields;
-  assert.equal(
-    Buffer.concat(
-      fields
-        .filter(({ tag }) => tag === CpicTag.XRfcData)
-        .map(({ value }) => Buffer.from(value)),
-    ).toString("utf8"),
-    "<TABLE><item><NUMBER>3</NUMBER><RAW>yv4=</RAW></item></TABLE>",
+}
+
+test("recursive TABLES accepts an empty classic binary response", () => {
+  assert.deepEqual(decodeBinaryTable(binaryTableFields(0)), { TABLE: [] });
+});
+
+test("recursive TABLES still rejects nonempty binary rows", () => {
+  assert.throws(
+    () => decodeBinaryTable(binaryTableFields(1, [Buffer.alloc(12)])),
+    /binary table for recursive parameter TABLE/u,
+  );
+});
+
+test("empty recursive TABLES does not bypass binary envelope validation", () => {
+  assert.throws(
+    () => decodeBinaryTable(binaryTableFields(1)),
+    /declares 1 rows but found 0/u,
+  );
+  assert.throws(
+    () => decodeBinaryTable(binaryTableFields(0, [Buffer.alloc(12)])),
+    /table record without a table name/u,
+  );
+  const fields = binaryTableFields(0);
+  assert.throws(
+    () => decodeBinaryTable([...fields.slice(0, -1), ...fields]),
+    /duplicate parameter TABLE/u,
+  );
+  assert.throws(
+    () => decodeBinaryTable([{ ...fields[0]!, value: Buffer.from("UNKNOWN", "utf16le") }, ...fields.slice(1)]),
+    /unknown table UNKNOWN/u,
+  );
+});
+
+test("explicitly suppressed recursive TABLES retains its initial value", () => {
+  assert.deepEqual(
+    decodeBinaryTable([{ tag: CpicTag.End, value: Buffer.alloc(0) }], { notRequested: new Set(["TABLE"]) }),
+    { TABLE: [] },
   );
 });

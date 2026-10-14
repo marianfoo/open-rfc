@@ -240,6 +240,10 @@ npm record identify the released source and package.
 - WebSocket RFC business calls, Cloud Connector principal propagation, SNC,
   and X.509 are not supported and fail closed before business I/O when their
   required provider or authentication capability is absent.
+- Recursive calls without an explicit serializer policy use classic xRFC when
+  normalized function metadata explicitly reports no basXML support. Functions
+  with basXML support or unknown capability still require a live serializer
+  decision; basXML-required calls remain unsupported.
 - SNC, other SSO mechanisms, X.509, non-Unicode/MDMP partners, registered server
   mode, Throughput, tRFC, qRFC, bgRFC, basXML, compression, and complete NW RFC
   SDK parity are not supported.
@@ -247,6 +251,20 @@ npm record identify the released source and package.
 The package summary is intentionally narrow: unknown or unavailable provider
 capabilities fail before business I/O rather than silently disappearing, while
 implemented preview routes remain explicitly outside the beta support contract.
+
+## Table-typed TABLES parameters
+
+Optional TABLES outputs are requested even when their inputs are omitted.
+Table-typed parameters require recursive metadata access; basXML-capable or
+unknown functions also require a supported serializer policy.
+
+For TABLES parameters whose metadata uses a table type (`EXID h`), only empty
+binary results are currently supported. Supplied, mandatory, or explicitly
+activated inputs fail before sending. A nonempty binary result fails after the function
+has executed and closes the connection; do not automatically repeat that call.
+Use `callOptions.notRequested` for outputs the application does not need.
+IMPORTING and CHANGING recursive xRFC inputs remain supported within the
+serializer policy boundary.
 
 ## Compatibility and guides
 

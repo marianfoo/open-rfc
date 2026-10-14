@@ -76,7 +76,7 @@ const line: RfcStructureDefinition = Object.freeze({
 
 const structures = new Map([["Z_DEEP_T", line]]);
 
-const graph = normalizeRecursiveMetadataGraph({
+const graphInput = {
   FUNCTIONNAMES: [{
     FUNCTIONNAME: metadata.name,
     BASXML_SUPPORTED: "",
@@ -122,6 +122,12 @@ const graph = normalizeRecursiveMetadataGraph({
     PARAMTEXT: parameter.parameterText,
     OPTIONAL: "",
   })),
+};
+
+const graph = normalizeRecursiveMetadataGraph(graphInput);
+const basxmlGraph = normalizeRecursiveMetadataGraph({
+  ...graphInput,
+  FUNCTIONNAMES: graphInput.FUNCTIONNAMES.map(row => ({ ...row, BASXML_SUPPORTED: "X" })),
 });
 
 const deepStructureMetadata: RfcFunctionInterface = Object.freeze({
@@ -277,15 +283,15 @@ async function authenticatedWithSerializer(
   return session;
 }
 
-function installRecursiveMetadataDoubles(session: DirectCpicSession): void {
+function installRecursiveMetadataDoubles(session: DirectCpicSession, value = graph): void {
   Object.defineProperties(session, {
     getFunctionInterface: {
       value: async () => metadata,
     },
     getOptimizedRecursiveFunctionDescriptor: {
       value: async () => ({
-        value: graph,
-        generationToken: graph.functionIdentity!.generationToken,
+        value,
+        generationToken: value.functionIdentity!.generationToken,
       }),
     },
   });
@@ -360,7 +366,7 @@ test("direct session blocks an unclassified recursive send before exchange", asy
   t.after(() => peer.close());
   const session = await authenticatedWithSerializer(peer, "missing");
   t.after(() => session.close());
-  installRecursiveMetadataDoubles(session);
+  installRecursiveMetadataDoubles(session, basxmlGraph);
 
   await assert.rejects(
     session.invokeClassic(metadata.name, { IN: [] }),
@@ -718,6 +724,60 @@ test("caller BCD converter failure leaves the fully consumed session reusable", 
   assert.equal(peer.regularRequestCount(0), 2);
 });
 
+for (const policy of ["qualified", "missing"] as const) {
+  test(`recursive TABLES input is rejected without sending (${policy} provider)`, async (t) => {
+    const tableMetadata: RfcFunctionInterface = {
+      ...metadata,
+      parameters: [{ ...metadata.parameters[1]!, parameterClass: "T", optional: true }],
+    };
+    const parameter = tableMetadata.parameters[0]!;
+    const tableGraph = normalizeRecursiveMetadataGraph({
+      FUNCTIONNAMES: [{ FUNCTIONNAME: metadata.name, BASXML_SUPPORTED: "", UDAT: "20260716", UTIME: "010203" }],
+      DATATYPESCONT: [
+        {
+          TYPENAME: "Z_DEEP_T", FIELDNAME: "", COMPTYPE: "S", FIELDTYPE: "Z_DEEP",
+          DATATYPE: "STRU", TABLENGTH: 16, TABLENGTH_UC: 16, DESCRIPTION: "", DECIMALS: 0,
+          INTTYPE: "v", OFFSET: 0, OFFSET_UC: 0, INTLEN: 16, INTLEN_UC: 16, TIMESTAMP: "20260716010203",
+        },
+        ...line.fields.map(field => ({
+          TYPENAME: "Z_DEEP", FIELDNAME: field.fieldName, COMPTYPE: "E",
+          FIELDTYPE: field.exid === "g" ? "STRING" : "XSTRING",
+          DATATYPE: field.exid === "g" ? "STRG" : "RSTR", TABLENGTH: 16, TABLENGTH_UC: 16,
+          DESCRIPTION: "", DECIMALS: 0, INTTYPE: field.exid, OFFSET: field.offset,
+          OFFSET_UC: field.offset, INTLEN: field.internalLength, INTLEN_UC: field.internalLength,
+          TIMESTAMP: "20260716010203",
+        })),
+      ],
+      INDIRECTTYPES: [],
+      PARAMETERS: [{
+        FUNCNAME: metadata.name, PARAMCLASS: "T", PARAMETER: "IN", TABNAME: parameter.tableName,
+        FIELDNAME: "", EXID: "h", POSITION: parameter.position, OFFSET: 0,
+        INTLENGTH: parameter.internalLength, DECIMALS: 0, DEFAULT: "", PARAMTEXT: "", OPTIONAL: "X",
+      }],
+    });
+    const peer = await ScriptedRfcPeer.start([{ replies: [{ kind: "fields", fields: successfulRegularFields() }] }]);
+    t.after(() => peer.close());
+    let decisions = 0;
+    const session = await authenticatedWithSerializer(peer, policy, () => { decisions += 1; });
+    t.after(() => session.close());
+    for (const input of [{ IN: [] }, { IN: [{ STR: "request", XSTR: Buffer.of(0) }] }, {}]) {
+      await assert.rejects(
+        session.invokeClassicWithMetadata(
+          tableMetadata, input, structures, undefined, { activated: new Set(["IN"]) }, tableGraph,
+        ),
+        policy === "qualified"
+          ? /recursive TABLES input encoding is not implemented/u
+          : /recursive TABLES input encoding is not implemented|live-decision-required/u,
+      );
+      assert.equal(peer.regularRequestCount(0), 0);
+      assert.equal(session.state, "authenticated");
+    }
+    assert.equal(decisions, policy === "qualified" ? 3 : 0);
+    await session.ping();
+    assert.equal(peer.regularRequestCount(0), 1);
+  });
+}
+
 test("invalid deep input is rejected before exchange and leaves session reusable", async (t) => {
   const peer = await ScriptedRfcPeer.start([{
     replies: [
@@ -745,3 +805,21 @@ test("invalid deep input is rejected before exchange and leaves session reusable
   await session.ping();
   assert.equal(peer.regularRequestCount(0), 1);
 });
+
+for (const entry of ["invokeClassic", "invokeClassicWithMetadata"] as const) {
+  test(`default session admits explicitly non-basXML recursive calls through ${entry}`, async (t) => {
+    const peer = await ScriptedRfcPeer.start([{
+      replies: [{ kind: "fields", fields: deepFields("<OUT><item><STR>ok</STR><XSTR>AP8=</XSTR></item></OUT>") }],
+    }]);
+    t.after(() => peer.close());
+    const session = await authenticatedWithSerializer(peer, "missing");
+    t.after(() => session.close());
+    installRecursiveMetadataDoubles(session);
+    const input = { IN: [{ STR: "request", XSTR: Buffer.of(0, 0xff) }] };
+    const result = entry === "invokeClassic"
+      ? await session.invokeClassic(metadata.name, input)
+      : await session.invokeClassicWithMetadata(metadata, input, structures, undefined, {}, graph);
+    assert.deepEqual(result, { OUT: [{ STR: "ok", XSTR: Buffer.of(0, 0xff) }] });
+    assert.equal(peer.regularRequestCount(0), 1);
+  });
+}

@@ -70,7 +70,7 @@ return them from a diagnostics endpoint.
 | `clientOptions.stateless` | When `true`, reset server context after each call before reusing the session. |
 | `clientOptions.logLevel` | Accepted non-negative compatibility log level. |
 | `clientOptions.diagnostics` | Optional bounded structured diagnostic emitter. Never emit RFC inputs, outputs, or credentials from application wrappers. |
-| `clientOptions.recursiveSerializerPolicy` | Advanced open-rfc extension for recursive (nested table or structure) sends. Shape: `{ profile, observation: { defaultSerializer, basxmlDisabledSerializer } }`, where `profile` is `"abap-7.50"` or `"abap-7.58"`, `defaultSerializer` is `"classic-xrfc"`, `"basxml"` or `"unsupported"`, and `basxmlDisabledSerializer` is `"classic-xrfc"` or `"unsupported"`. General beta consumers must omit it unless the exact artifact's published support record supports the selected partner and value graph; omitted recursive sends fail closed. |
+| `clientOptions.recursiveSerializerPolicy` | Advanced open-rfc extension for recursive (nested table or structure) sends. Shape: `{ profile, observation: { defaultSerializer, basxmlDisabledSerializer } }`, where `profile` is `"abap-7.50"` or `"abap-7.58"`, `defaultSerializer` is `"classic-xrfc"`, `"basxml"` or `"unsupported"`, and `basxmlDisabledSerializer` is `"classic-xrfc"` or `"unsupported"`. Omit it unless the exact artifact's published support record supports the selected partner and value graph. Without a policy, recursive calls use classic xRFC only when function metadata explicitly says basXML is unsupported; basXML-capable or unknown functions fail closed. |
 | `clientOptions.callbacks` | Preview handlers for server-initiated `DESTINATION 'BACK'` calls, keyed by exact RFM name. A handler receives owned raw classic-RFC values plus `{ callbackIndex, signal }` and must synchronously return a plain own-data `{ exports?, tables?, xrfcParameters? }` or `{ exception }` response. Returned parameter names must be present in `request.requestedOutputs`; each raw xRFC result name must match its XML root. Unknown callback RFMs receive `FU_NOT_FOUND`; malformed, unconfigured, asynchronous, or excessive callback activity fails closed. |
 
 `cancel()` signals active calls and resolves after signaling; await the original
@@ -82,7 +82,17 @@ The first beta does not provide a general user procedure for enabling a
 recursive serializer policy. Direct observation alone is not enough. Do not
 copy a policy from another SAP release, function, or value graph. Unless the
 exact release support record explicitly supports your
-graph, omit the option and keep the fail-closed result.
+graph, omit the option. Such calls proceed without a policy only when function
+metadata explicitly excludes basXML and the value graph is supported.
+
+Optional TABLES outputs are requested even when their inputs are omitted,
+which can require additional recursive metadata authorization. For TABLES
+parameters described by a table type (`EXID h`), supplied, mandatory, or
+explicitly activated inputs are unsupported and fail before sending; only empty binary
+outputs can be decoded. A nonempty binary output fails after execution and
+retires the connection. Suppress unneeded outputs with `notRequested`; do not
+automatically replay a call after a response failure. Recursive IMPORTING and
+CHANGING xRFC inputs are unaffected.
 
 Callback handlers execute while the outer call owns its physical session. Do
 not call the same client or await work from a handler. Interpret and construct

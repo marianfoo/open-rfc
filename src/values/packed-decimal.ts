@@ -144,7 +144,9 @@ export function decodePackedDecimal(
   const hex = bytes.toString("hex").toUpperCase();
   const digits = hex.slice(0, capacity);
   if (!/^\d+$/u.test(digits)) throw new Error(`${path} contains a non-decimal digit nibble`);
-  const sign = hex.at(-1)!;
+  // Some peers return all zero bytes for an unused packed field. Accept that
+  // representation as zero, but retain sign validation for nonzero values.
+  const sign = /^0+$/u.test(hex) ? "C" : hex.at(-1)!;
   const positive = sign === "A" || sign === "C" || sign === "E" || sign === "F";
   const negative = sign === "B" || sign === "D";
   if (!positive && !negative) throw new Error(`${path} contains invalid sign nibble ${sign}`);

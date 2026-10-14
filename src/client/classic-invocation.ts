@@ -1019,8 +1019,11 @@ function preflightClassicRfcInvocationRequest(
         recursiveXrfc.has(parameter.parameterName) ||
         classicXrfcKind(parameter, structures) !== undefined
       ) {
-        addXrfcEncoding(parameter, value);
-        continue;
+        // TABLES inputs use binary rows; the recursive xRFC input envelope is
+        // valid for I/C parameters, but peers reject it for class T.
+        throw new Error(
+          `${parameter.parameterName} recursive TABLES input encoding is not implemented`,
+        );
       }
       const rowCount = value.length;
       tableRowCounts.set(parameter.parameterName, rowCount);
@@ -1891,16 +1894,6 @@ export function buildClassicRfcInvocationRequest(
           requestedOutputs.push(parameter.parameterName);
         }
         if (!active.present) break;
-        const xrfcEncoding = preflight.xrfcEncodings.get(
-          parameter.parameterName,
-        );
-        if (xrfcEncoding !== undefined) {
-          xrfcParameters.push({
-            name: parameter.parameterName,
-            value: xrfcEncoding,
-          });
-          break;
-        }
         const value = active.value;
         if (!Array.isArray(value)) {
           throw new TypeError(`${parameter.parameterName} expects an array of rows`);
@@ -2163,6 +2156,12 @@ function decodeClassicRfcInvocationResultWithOwnership(
     }
     if (!requestedOutputs.has(table.name)) continue;
     if (recursiveXrfc.has(table.name)) {
+      // Classic TABLES replies are binary. Without a row layout, only an
+      // empty result can be decoded for a table-typed parameter.
+      if (table.rows.length === 0) {
+        defineClassicRfcOutput(output, table.name, []);
+        continue;
+      }
       throw new Error(
         `classic RFC response returned a binary table for recursive parameter ${table.name}`,
       );

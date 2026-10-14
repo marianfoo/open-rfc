@@ -377,8 +377,8 @@
     },
     {
       "path": "dist/src/values/recursive-serializer-classification.d.ts",
-      "bytes": 4214,
-      "sha256": "f1708afc23623f63b454cc986ad41c70682e17d34ac64d2225d644bbeb8381ff"
+      "bytes": 4230,
+      "sha256": "34171b3efacd9d80c8ee653cb9a8e532aa5d5e76306e47660999acd6ce293266"
     },
     {
       "path": "dist/src/values/recursive-xrfc.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "4c29183e4b16de0ece861877bafebdf24506467dd088bc0db296a55a6692b9dc"
+  "aggregateSha256": "e6343eba27a488561a3f1083f78df46ead87b4451349f87e6c3772f41636047a"
 }
