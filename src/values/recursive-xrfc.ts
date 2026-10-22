@@ -1641,7 +1641,8 @@ function decodedScalar(
       return text;
     }
     case "D": {
-      if (text.length === 0) return "";
+      // ABAP serializes a space-filled DATS as "    -  -  "; node-rfc reads it as "".
+      if (text.length === 0 || text === "    -  -  ") return "";
       if (!/^\d{4}-\d{2}-\d{2}$/u.test(text)) {
         throw new Error(`${path} contains a non-canonical xRFC DATE`);
       }
@@ -1650,7 +1651,8 @@ function decodedScalar(
       return value;
     }
     case "T": {
-      if (text.length === 0) return "";
+      // ABAP serializes a space-filled TIMS as "  :  :  "; node-rfc reads it as "".
+      if (text.length === 0 || text === "  :  :  ") return "";
       if (!/^\d{2}:\d{2}:\d{2}$/u.test(text)) {
         throw new Error(`${path} contains a non-canonical xRFC TIME`);
       }
