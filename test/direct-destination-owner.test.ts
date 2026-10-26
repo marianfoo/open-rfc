@@ -2339,6 +2339,117 @@ test("retirement aborts a timestamp refresh, clears tokens, and drains its repos
   );
 });
 
+test("invalidateMetadata reloads a changed classic function signature and its structures", async () => {
+  let addedParameter = false;
+  const { owner, events } = ownerFixture({
+    repositoryMode: MetadataRepositoryMode.Classic,
+    async getFunctionInterface(_session, name) {
+      const base = functionInterface(name, true);
+      if (!addedParameter) return base;
+      return Object.freeze({
+        ...base,
+        parameters: Object.freeze([
+          ...base.parameters,
+          Object.freeze({
+            ...base.parameters[0]!,
+            parameterName: "TEST",
+            tableName: "",
+            exid: "C",
+            position: 2,
+            internalLength: 1,
+            optional: true,
+          }),
+        ]),
+      });
+    },
+  });
+  const loads = (prefix: string, name: string): number =>
+    events.filter((event) => event.startsWith(prefix) && event.endsWith(`:${name}`))
+      .length;
+  const lease = await owner.acquireApplication();
+  await owner.invoke(lease, {
+    functionName: "Z_CHANGED",
+    parameters: { INPUT: { VALUE: 1 } },
+  });
+  const before = await owner.getFunctionInterface("Z_CHANGED");
+  assert.deepEqual(before.parameters.map((p) => p.parameterName), ["INPUT"]);
+  assert.equal(loads("function:", "Z_CHANGED"), 1);
+  assert.equal(loads("structure:", "ZLINE"), 1);
+  assert.equal(owner.monitor().metadata.entries, 2);
+
+  addedParameter = true;
+  assert.equal(owner.invalidateMetadata(), 2);
+  assert.equal(owner.monitor().metadata.entries, 0);
+
+  const after = await owner.getFunctionInterface("Z_CHANGED");
+  assert.deepEqual(after.parameters.map((p) => p.parameterName), ["INPUT", "TEST"]);
+  assert.equal(loads("function:", "Z_CHANGED"), 2);
+  await owner.invoke(lease, {
+    functionName: "Z_CHANGED",
+    parameters: { INPUT: { VALUE: 2 } },
+  });
+  assert.equal(loads("function:", "Z_CHANGED"), 2);
+  assert.equal(loads("structure:", "ZLINE"), 2);
+  await owner.releaseApplication(lease, { reusable: true });
+  await owner.retire();
+});
+
+test("invalidateMetadata lets an in-flight load finish without caching it", async () => {
+  const stale = deferred<RfcFunctionInterface>();
+  let calls = 0;
+  const { owner } = ownerFixture({
+    repositoryMode: MetadataRepositoryMode.Auto,
+    repositoryMaxConnections: 2,
+    async getOptimizedFunctionInterface(_session, name) {
+      if (name !== "Z_INFLIGHT") return functionInterface(name);
+      calls += 1;
+      return calls === 1 ? stale.promise : functionInterface(name, true);
+    },
+    optimizedFunctionGeneration: () => token,
+  });
+  let token = "function:20260716:010204";
+  const first = owner.getFunctionInterface("Z_INFLIGHT");
+  await until(() => calls === 1, "first metadata load did not start", 2_000);
+  assert.equal(owner.invalidateMetadata(), 0);
+
+  const second = await owner.getFunctionInterface("Z_INFLIGHT");
+  assert.equal(calls, 2);
+  assert.equal(second.parameters.length, 1);
+  assert.equal(owner.monitor().optimizedGenerationTokens, 1);
+
+  // Give the stale load the generation SAP reports below, so a leaked stale
+  // record would make the refresh keep the fresh descriptor.
+  token = "function:20260716:010203";
+  stale.resolve(functionInterface("Z_INFLIGHT"));
+  assert.equal((await first).parameters.length, 0);
+  // The stale load neither replaced the cached fresh descriptor nor its
+  // generation record.
+  assert.equal(owner.monitor().optimizedGenerationTokens, 1);
+  const cached = await owner.getFunctionInterface("Z_INFLIGHT");
+  assert.equal(cached, second);
+  assert.equal(calls, 2);
+  const refresh = await owner.refreshOptimizedMetadata(["Z_INFLIGHT"], []);
+  assert.deepEqual(refresh.invalidatedFunctionNames, ["Z_INFLIGHT"]);
+  await owner.retire();
+});
+
+test("invalidateMetadata clears optimized generation tokens and is inert once retired", async () => {
+  const { owner } = ownerFixture({ repositoryMode: MetadataRepositoryMode.Auto });
+  await owner.getFunctionInterface("Z_TOKEN");
+  await owner.getStructureDefinition("ZLINE");
+  assert.equal(owner.monitor().optimizedGenerationTokens, 2);
+  const invalidations = owner.monitor().metadata.invalidations;
+  assert.equal(owner.invalidateMetadata(), 2);
+  assert.equal(owner.monitor().optimizedGenerationTokens, 0);
+  assert.equal(owner.monitor().metadata.invalidations, invalidations + 1);
+  const refresh = await owner.refreshOptimizedMetadata(["Z_TOKEN"], ["ZLINE"]);
+  assert.deepEqual(refresh.invalidatedFunctionNames, []);
+  assert.deepEqual(refresh.invalidatedStructureNames, []);
+
+  await owner.retire();
+  assert.equal(owner.invalidateMetadata(), 0);
+});
+
 test("auto mode falls back only after a classified optimized capability miss", async () => {
   const { owner, events } = ownerFixture({
     repositoryMode: MetadataRepositoryMode.Auto,

@@ -45,6 +45,7 @@ client.close(callback?): Promise<void> | void
 client.release(callback?): Promise<void> | void
 client.getFunctionInterface(functionName): Promise<FunctionInterface>
 client.getStructureDefinition(structureName): Promise<StructureDefinition>
+client.invalidateMetadata(): void
 ```
 
 A standalone client must be opened and closed by its caller. A client returned
@@ -194,6 +195,7 @@ pool.acquire(count?): Promise<Client | Client[]>
 pool.release(clientOrClients): Promise<void>
 pool.cancel(client): Promise<void>
 pool.closeAll(): Promise<void>
+pool.invalidateMetadata(): void
 pool.monitor(): PoolMonitor
 ```
 
@@ -300,6 +302,25 @@ for cleanup that preserves both primary and rollback/close failures.
 Metadata methods require an open client/connection and are subject to the same
 cancellation, bounds, isolation, and fatal-generation rules as business calls.
 Returned names and casing are authoritative for later input.
+
+### Refreshing cached metadata
+
+An open `Client` caches each function interface and structure definition it
+loads, and reuses them for later calls and metadata lookups. The cache belongs
+to that client's connection: another `Client` has its own, and the clients of
+one `Pool` share the pool's. Closing the client discards it.
+
+When a function module's signature can change while the client stays open, for
+example when a transport import adds an `IMPORTING` parameter, call
+`client.invalidateMetadata()` (or `pool.invalidateMetadata()`) after the change.
+The next call or metadata lookup then reads each interface from SAP again. This
+is the per-connection equivalent of node-rfc's process-wide repository clear.
+
+- It is synchronous and does no I/O.
+- A call already waiting on a metadata load finishes with that load; calls
+  started afterwards load fresh metadata.
+- On a client that is not open, or a pool that has not connected or is closed,
+  it does nothing and does not throw, so it is safe to call best-effort.
 
 ## Utilities and compatibility exports
 

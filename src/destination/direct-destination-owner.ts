@@ -1814,6 +1814,12 @@ export class DirectDestinationOwner {
     OptimizedGenerationRecord
   >();
   readonly #optimizedDescriptorTokens = new WeakMap<object, string>();
+  /**
+   * Advanced by invalidateMetadata(). A descriptor load admitted under an
+   * older epoch may still complete for its joined callers, but it can no
+   * longer publish an optimized generation token into the cleared map.
+   */
+  #metadataInvalidationEpoch = 0;
   readonly #metadataRefreshRetirement = new AbortController();
   #metadataRefreshOperation?: MetadataRefreshOperation;
   readonly #contexts: SessionContextRuntime<
@@ -2382,6 +2388,27 @@ export class DirectDestinationOwner {
     return waitForMetadataRefreshCaller(pending, caller);
   }
 
+  /**
+   * Drop every cached function, recursive-function, and structure descriptor
+   * together with the optimized generation tokens that describe them, so the
+   * next lookup re-reads the interface from SAP. This is the explicit,
+   * caller-chosen equivalent of the SDK's repository clear; there is no
+   * background I/O.
+   *
+   * Loads already in flight keep serving the callers that joined them, but
+   * their results are never published into the cleared cache, and later
+   * lookups start a fresh load. A pending timestamp refresh cannot invalidate
+   * a descriptor loaded after this call. Returns the number of cached
+   * descriptors removed; a retiring or retired owner has nothing left to clear
+   * and returns 0.
+   */
+  invalidateMetadata(): number {
+    if (this.#state !== "active") return 0;
+    this.#metadataInvalidationEpoch += 1;
+    this.#optimizedGenerationTokens.clear();
+    return this.#repository.invalidateAll();
+  }
+
   retire(): Promise<void> {
     if (this.#retirement !== undefined) return this.#retirement;
     this.#state = "retiring";
@@ -2534,6 +2561,7 @@ export class DirectDestinationOwner {
       objectKind,
       context.structural.objectName,
     );
+    const invalidationEpoch = this.#metadataInvalidationEpoch;
     if (context.strategy !== MetadataLoadStrategy.Optimized) {
       // A classic or legacy fallback must never inherit a token from an older
       // optimized descriptor for the same structural key.
@@ -2632,7 +2660,12 @@ export class DirectDestinationOwner {
           objectKind,
         );
         this.#optimizedDescriptorTokens.set(value.value, canonicalToken);
-        this.#rememberOptimizedGeneration(context.structural, generationToken);
+        // invalidateMetadata() may have run while this load was in flight. The
+        // repository already refuses to cache it; keep its generation record
+        // out of the cleared map so a later refresh cannot act on it.
+        if (invalidationEpoch === this.#metadataInvalidationEpoch) {
+          this.#rememberOptimizedGeneration(context.structural, generationToken);
+        }
       }
     } else {
       this.#optimizedDescriptorTokens.delete(value.value);

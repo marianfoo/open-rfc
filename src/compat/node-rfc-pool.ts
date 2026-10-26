@@ -657,6 +657,16 @@ export class Pool {
     return withCallback(closing, callback);
   }
 
+  /**
+   * Drop the cached function and structure metadata shared by this pool's
+   * clients, so the next call or metadata lookup re-reads each interface from
+   * SAP. Calls already waiting on a metadata load finish with that load. A pool
+   * that has not connected yet, or is closed, has no cache and is unaffected.
+   */
+  invalidateMetadata(): void {
+    this.#owner?.invalidateMetadata();
+  }
+
   monitor(): DirectDestinationOwnerMonitor {
     return this.#ensureOwner().monitor();
   }

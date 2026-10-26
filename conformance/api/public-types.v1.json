@@ -107,8 +107,8 @@
     },
     {
       "path": "dist/src/compat/node-rfc-client.d.ts",
-      "bytes": 5768,
-      "sha256": "0b7491cdb73cef8bec0799b319fd47c5b52d4f27f390fbba5e843e42f9931b0f"
+      "bytes": 6514,
+      "sha256": "1a74edf1331fed07053a75bff9adce271feee27af74bf1dc47d552908b420cec"
     },
     {
       "path": "dist/src/compat/node-rfc-library.d.ts",
@@ -117,8 +117,8 @@
     },
     {
       "path": "dist/src/compat/node-rfc-pool.d.ts",
-      "bytes": 2621,
-      "sha256": "5d8c8be13b30a6476a2ddc8fed92601b7d7d88694410e206d70b64eff14733bf"
+      "bytes": 2991,
+      "sha256": "b64cf3e41af452c062dc2345a1a505813e73f710d9cda7c03928be5d15f67267"
     },
     {
       "path": "dist/src/compat/node-rfc-public-surface.d.ts",
@@ -157,8 +157,8 @@
     },
     {
       "path": "dist/src/destination/direct-destination-owner.d.ts",
-      "bytes": 9915,
-      "sha256": "c5a90900ad1b38a4a921d9fe87a97d12fa0b9434dc502389523657d222bd2325"
+      "bytes": 10715,
+      "sha256": "58ed9e2ea58ebb172e97e53faf317e5f5d0203760d470959307622d652dbd0ba"
     },
     {
       "path": "dist/src/destination/runtime.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "e6343eba27a488561a3f1083f78df46ead87b4451349f87e6c3772f41636047a"
+  "aggregateSha256": "0b2b72a3c054486ea358b3da0c827dd5c76cd5599a341e4c8194840476771265"
 }
