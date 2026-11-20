@@ -1212,6 +1212,24 @@ test("canonicalizes blank xRFC DATE/TIME inputs to empty elements", () => {
       { DATE: "", TIME: "" },
     );
   }
+  assert.deepEqual(
+    decodeRecursiveXrfcParameter(
+      descriptor,
+      metadata,
+      Buffer.from(
+        "<TEMPORAL><DATE>    -  -  </DATE><TIME>  :  :  </TIME></TEMPORAL>",
+      ),
+    ),
+    { DATE: "", TIME: "" },
+  );
+  assert.throws(
+    () => decodeRecursiveXrfcParameter(
+      descriptor,
+      metadata,
+      Buffer.from("<TEMPORAL><DATE>2026-  -  </DATE><TIME></TIME></TEMPORAL>"),
+    ),
+    /non-canonical xRFC DATE/u,
+  );
 });
 
 test("pads short fixed BYTE values and rejects only oversized values", () => {

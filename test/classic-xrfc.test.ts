@@ -327,6 +327,18 @@ test("canonicalizes flat xRFC blank DATE/TIME and rejects malformed extended cel
     ) as Record<string, unknown>;
     assert.equal(decoded.DATE, "");
     assert.equal(decoded.TIME, "");
+    const serverBlank = decodeClassicXrfcParameter(
+      "ROW",
+      EXTENDED_ROW,
+      "structure",
+      Buffer.from(
+        encoded.toString()
+          .replace("<DATE></DATE>", "<DATE>    -  -  </DATE>")
+          .replace("<TIME></TIME>", "<TIME>  :  :  </TIME>"),
+      ),
+    ) as Record<string, unknown>;
+    assert.equal(serverBlank.DATE, "");
+    assert.equal(serverBlank.TIME, "");
   }
   assert.throws(
     () => decodeClassicXrfcParameter(

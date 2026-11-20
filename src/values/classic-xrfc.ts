@@ -829,7 +829,8 @@ function decodeCell(
       return value.padStart(capacity, "0");
     }
     case "D": {
-      if (value.length === 0) return "";
+      // ABAP serializes a space-filled DATS as "    -  -  "; node-rfc reads it as "".
+      if (value.length === 0 || value === "    -  -  ") return "";
       if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
         throw new Error(`${path} contains a non-canonical xRFC DATE`);
       }
@@ -838,7 +839,8 @@ function decodeCell(
       return date;
     }
     case "T": {
-      if (value.length === 0) return "";
+      // ABAP serializes a space-filled TIMS as "  :  :  "; node-rfc reads it as "".
+      if (value.length === 0 || value === "  :  :  ") return "";
       if (!/^\d{2}:\d{2}:\d{2}$/u.test(value)) {
         throw new Error(`${path} contains a non-canonical xRFC TIME`);
       }
