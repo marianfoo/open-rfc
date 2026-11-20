@@ -1136,13 +1136,15 @@ export class DirectCpicSession {
   async getFunctionInterface(
     functionName: string,
     signal?: AbortSignal,
+    cacheOwner: "session" | "repository" = "session",
   ): Promise<RfcFunctionInterface> {
     if (!this.#authenticated || this.#cpicSessionId === undefined) {
       throw new Error(
         "direct CPIC session must be authenticated before metadata lookup",
       );
     }
-    const cached = this.#metadata.get(functionName);
+    const cache = cacheOwner === "session" ? this.#metadata : undefined;
+    const cached = cache?.get(functionName);
     if (cached !== undefined) return cached;
     const response = await this.exchange(
       buildRfcGetFunctionInterfaceRequest(functionName),
@@ -1151,7 +1153,7 @@ export class DirectCpicSession {
     const decoded = await this.#decodeRegularResponse(response);
     const metadata = await this.#decodeApplicationResult(() =>
       decodeRfcFunctionInterfaceResult(functionName, decoded.fields));
-    this.#metadata.set(functionName, metadata);
+    cache?.set(functionName, metadata);
     return metadata;
   }
 
@@ -1455,13 +1457,15 @@ export class DirectCpicSession {
   async getStructureDefinition(
     structureName: string,
     signal?: AbortSignal,
+    cacheOwner: "session" | "repository" = "session",
   ): Promise<RfcStructureDefinition> {
     if (!this.#authenticated || this.#cpicSessionId === undefined) {
       throw new Error(
         "direct CPIC session must be authenticated before structure metadata lookup",
       );
     }
-    const cached = this.#structures.get(structureName);
+    const cache = cacheOwner === "session" ? this.#structures : undefined;
+    const cached = cache?.get(structureName);
     if (cached !== undefined) return cached;
     const response = await this.exchange(
       buildDdIfFieldInfoGetRequest(structureName),
@@ -1473,7 +1477,7 @@ export class DirectCpicSession {
         structureName,
         decoded.fields,
       ));
-    this.#structures.set(structureName, definition);
+    cache?.set(structureName, definition);
     return definition;
   }
 
@@ -1549,13 +1553,15 @@ export class DirectCpicSession {
   async getLegacyStructureDefinition(
     structureName: string,
     signal?: AbortSignal,
+    cacheOwner: "session" | "repository" = "session",
   ): Promise<RfcStructureDefinition> {
     if (!this.#authenticated || this.#cpicSessionId === undefined) {
       throw new Error(
         "direct CPIC session must be authenticated before metadata lookup",
       );
     }
-    const cached = this.#structures.get(structureName);
+    const cache = cacheOwner === "session" ? this.#structures : undefined;
+    const cached = cache?.get(structureName);
     if (cached !== undefined) return cached;
     const response = await this.exchange(
       buildRfcGetStructureDefinitionRequest(structureName),
@@ -1565,9 +1571,9 @@ export class DirectCpicSession {
     const rowName = await this.#decodeApplicationResult(() =>
       detectRfcStructureDefinitionRowName(structureName, decoded.fields));
     if (rowName !== undefined) {
-      const cachedRow = this.#structures.get(rowName);
+      const cachedRow = cache?.get(rowName);
       if (cachedRow !== undefined) {
-        this.#structures.set(structureName, cachedRow);
+        cache?.set(structureName, cachedRow);
         return cachedRow;
       }
       // RFC_GET_STRUCTURE_DEFINITION answers a table-type query with fields
@@ -1580,13 +1586,13 @@ export class DirectCpicSession {
       const decodedRow = await this.#decodeRegularResponse(rowResponse);
       const rowDefinition = await this.#decodeApplicationResult(() =>
         decodeRfcStructureDefinitionResult(rowName, decodedRow.fields));
-      this.#structures.set(rowName, rowDefinition);
-      this.#structures.set(structureName, rowDefinition);
+      cache?.set(rowName, rowDefinition);
+      cache?.set(structureName, rowDefinition);
       return rowDefinition;
     }
     const definition = await this.#decodeApplicationResult(() =>
       decodeRfcStructureDefinitionResult(structureName, decoded.fields));
-    this.#structures.set(structureName, definition);
+    cache?.set(structureName, definition);
     return definition;
   }
 

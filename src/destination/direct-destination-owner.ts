@@ -948,13 +948,14 @@ function bindDirectSession(
     close: (): Promise<void> => Promise.resolve(safeApply(close, session, [])),
     reset: (signal?: AbortSignal): Promise<void> =>
       Promise.resolve(safeApply(reset, session, [signal])),
+    // A destination cache miss must reach SAP, even on a reused session.
     getFunctionInterface: (name: string, signal?: AbortSignal) =>
-      Promise.resolve(safeApply(getFunctionInterface, session, [name, signal])),
+      Promise.resolve(safeApply(getFunctionInterface, session, [name, signal, "repository"])),
     getStructureDefinition: (name: string, signal?: AbortSignal) =>
-      Promise.resolve(safeApply(getStructureDefinition, session, [name, signal])),
+      Promise.resolve(safeApply(getStructureDefinition, session, [name, signal, "repository"])),
     getLegacyStructureDefinition: (name: string, signal?: AbortSignal) =>
       Promise.resolve(
-        safeApply(getLegacyStructureDefinition, session, [name, signal]),
+        safeApply(getLegacyStructureDefinition, session, [name, signal, "repository"]),
       ),
     getOptimizedFunctionInterface: (
       name: string,
