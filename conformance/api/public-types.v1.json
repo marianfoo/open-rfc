@@ -107,8 +107,8 @@
     },
     {
       "path": "dist/src/compat/node-rfc-client.d.ts",
-      "bytes": 6514,
-      "sha256": "1a74edf1331fed07053a75bff9adce271feee27af74bf1dc47d552908b420cec"
+      "bytes": 6424,
+      "sha256": "78573ea2df1f93b8e699d14d3ceda924f31a614b84b6f928907f36509dc8feec"
     },
     {
       "path": "dist/src/compat/node-rfc-library.d.ts",
@@ -207,8 +207,8 @@
     },
     {
       "path": "dist/src/metadata/repository-runtime.d.ts",
-      "bytes": 6417,
-      "sha256": "6a4c2cc1a2559ad40a89e57da00c2cae3627c7548c1e3f3ca1648e2f0bc74279"
+      "bytes": 6610,
+      "sha256": "387fb013c06ce02924d329e133a64951d45596e68359bc62cc6bdbdebeaee9e4"
     },
     {
       "path": "dist/src/metadata/rfc-function-interface.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "0b2b72a3c054486ea358b3da0c827dd5c76cd5599a341e4c8194840476771265"
+  "aggregateSha256": "3c861269553fbc8948c52982ebb6e0bcb2c3be084d587feb0897c6bf6bcdc763"
 }

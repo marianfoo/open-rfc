@@ -418,7 +418,7 @@ interface FakeSession {
     language: string,
     signal?: AbortSignal,
   ): Promise<RfcStructureDefinition>;
-  getOptimizedFunctionDescriptor(
+  getOptimizedFunctionDescriptor?(
     name: string,
     language: string,
     signal?: AbortSignal,
@@ -506,6 +506,7 @@ function ownerFixture(options: {
     session: FakeSession,
     name: string,
   ) => string;
+  readonly firstSessionWithoutGeneration?: boolean;
   readonly optimizedStructureGeneration?: (
     session: FakeSession,
     name: string,
@@ -698,6 +699,9 @@ function ownerFixture(options: {
           });
         },
       };
+      if (options.firstSessionWithoutGeneration && sessions.length === 0) {
+        delete session.getOptimizedFunctionDescriptor;
+      }
       sessions.push(session);
       return session as unknown as DirectCpicSession;
     },
@@ -2378,6 +2382,7 @@ test("invalidateMetadata reloads a changed classic function signature and its st
   assert.equal(owner.monitor().metadata.entries, 2);
 
   addedParameter = true;
+  assert.equal(await owner.getFunctionInterface("Z_CHANGED"), before);
   assert.equal(owner.invalidateMetadata(), 2);
   assert.equal(owner.monitor().metadata.entries, 0);
 
@@ -2394,44 +2399,47 @@ test("invalidateMetadata reloads a changed classic function signature and its st
   await owner.retire();
 });
 
-test("invalidateMetadata lets an in-flight load finish without caching it", async () => {
-  const stale = deferred<RfcFunctionInterface>();
-  let calls = 0;
-  const { owner } = ownerFixture({
-    repositoryMode: MetadataRepositoryMode.Auto,
-    repositoryMaxConnections: 2,
-    async getOptimizedFunctionInterface(_session, name) {
-      if (name !== "Z_INFLIGHT") return functionInterface(name);
-      calls += 1;
-      return calls === 1 ? stale.promise : functionInterface(name, true);
-    },
-    optimizedFunctionGeneration: () => token,
+for (const staleToken of ["function:20260716:010203", undefined]) {
+  test(`invalidateMetadata protects the new descriptor when a stale load returns ${staleToken ?? "no token"}`, async () => {
+    const stale = deferred<RfcFunctionInterface>();
+    let calls = 0;
+    const { owner } = ownerFixture({
+      repositoryMode: MetadataRepositoryMode.Auto,
+      repositoryMaxConnections: 2,
+      async getOptimizedFunctionInterface(_session, name) {
+        if (name !== "Z_INFLIGHT") return functionInterface(name);
+        calls += 1;
+        return calls === 1 ? stale.promise : functionInterface(name, true);
+      },
+      optimizedFunctionGeneration: () => token,
+      firstSessionWithoutGeneration: staleToken === undefined,
+    });
+    let token = "function:20260716:010204";
+    const first = owner.getFunctionInterface("Z_INFLIGHT");
+    await until(() => calls === 1, "first metadata load did not start", 2_000);
+    assert.equal(owner.invalidateMetadata(), 0);
+
+    const second = await owner.getFunctionInterface("Z_INFLIGHT");
+    assert.equal(calls, 2);
+    assert.equal(second.parameters.length, 1);
+    assert.equal(owner.monitor().optimizedGenerationTokens, 1);
+
+    // Give the stale load the generation SAP reports below, so a leaked stale
+    // record would make the refresh keep the fresh descriptor.
+    if (staleToken !== undefined) token = staleToken;
+    stale.resolve(functionInterface("Z_INFLIGHT"));
+    assert.equal((await first).parameters.length, 0);
+    // The stale load neither replaced the cached fresh descriptor nor its
+    // generation record.
+    assert.equal(owner.monitor().optimizedGenerationTokens, 1);
+    const cached = await owner.getFunctionInterface("Z_INFLIGHT");
+    assert.equal(cached, second);
+    assert.equal(calls, 2);
+    const refresh = await owner.refreshOptimizedMetadata(["Z_INFLIGHT"], []);
+    assert.deepEqual(refresh.invalidatedFunctionNames, ["Z_INFLIGHT"]);
+    await owner.retire();
   });
-  let token = "function:20260716:010204";
-  const first = owner.getFunctionInterface("Z_INFLIGHT");
-  await until(() => calls === 1, "first metadata load did not start", 2_000);
-  assert.equal(owner.invalidateMetadata(), 0);
-
-  const second = await owner.getFunctionInterface("Z_INFLIGHT");
-  assert.equal(calls, 2);
-  assert.equal(second.parameters.length, 1);
-  assert.equal(owner.monitor().optimizedGenerationTokens, 1);
-
-  // Give the stale load the generation SAP reports below, so a leaked stale
-  // record would make the refresh keep the fresh descriptor.
-  token = "function:20260716:010203";
-  stale.resolve(functionInterface("Z_INFLIGHT"));
-  assert.equal((await first).parameters.length, 0);
-  // The stale load neither replaced the cached fresh descriptor nor its
-  // generation record.
-  assert.equal(owner.monitor().optimizedGenerationTokens, 1);
-  const cached = await owner.getFunctionInterface("Z_INFLIGHT");
-  assert.equal(cached, second);
-  assert.equal(calls, 2);
-  const refresh = await owner.refreshOptimizedMetadata(["Z_INFLIGHT"], []);
-  assert.deepEqual(refresh.invalidatedFunctionNames, ["Z_INFLIGHT"]);
-  await owner.retire();
-});
+}
 
 test("invalidateMetadata clears optimized generation tokens and is inert once retired", async () => {
   const { owner } = ownerFixture({ repositoryMode: MetadataRepositoryMode.Auto });

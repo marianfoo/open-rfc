@@ -308,13 +308,12 @@ Returned names and casing are authoritative for later input.
 An open `Client` caches each function interface and structure definition it
 loads, and reuses them for later calls and metadata lookups. The cache belongs
 to that client's connection: another `Client` has its own, and the clients of
-one `Pool` share the pool's. Closing the client discards it.
+one `Pool` share the pool's. Closing a standalone client discards its cache.
 
 When a function module's signature can change while the client stays open, for
 example when a transport import adds an `IMPORTING` parameter, call
 `client.invalidateMetadata()` (or `pool.invalidateMetadata()`) after the change.
-The next call or metadata lookup then reads each interface from SAP again. This
-is the per-connection equivalent of node-rfc's process-wide repository clear.
+The next call or metadata lookup then reads each interface from SAP again.
 
 - It is synchronous and does no I/O.
 - A call already waiting on a metadata load finishes with that load; calls

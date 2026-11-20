@@ -1435,8 +1435,7 @@ export class Client {
    * Drop the cached function and structure metadata of this client's
    * connection, so the next call or metadata lookup re-reads each interface
    * from SAP. Use it when a function module signature may have changed while
-   * the client stayed open, for example after a transport import. This is the
-   * per-connection equivalent of node-rfc's process-wide repository clear.
+   * the client stayed open, for example after a transport import.
    *
    * Calls already waiting on a metadata load finish with that load; later
    * lookups load fresh metadata. A managed client shares its pool's cache, so
@@ -1444,7 +1443,7 @@ export class Client {
    * there is no cache to clear and the call does nothing.
    */
   invalidateMetadata(): void {
-    this.#owner?.invalidateMetadata();
+    if (this.#state === "open") this.#owner?.invalidateMetadata();
   }
 
   [pooledClientAttach](attachment: PooledClientAttachment): void {

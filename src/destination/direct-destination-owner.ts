@@ -52,7 +52,7 @@ import {
   MetadataLoadStrategy,
   MetadataRepositoryMode,
   MetadataRepositoryRuntime,
-  type MetadataAccessContext,
+  type MetadataLoadContext,
   type MetadataRepositoryMonitor,
   type MetadataSnapshot,
   type MetadataStructuralKey,
@@ -1814,12 +1814,6 @@ export class DirectDestinationOwner {
     OptimizedGenerationRecord
   >();
   readonly #optimizedDescriptorTokens = new WeakMap<object, string>();
-  /**
-   * Advanced by invalidateMetadata(). A descriptor load admitted under an
-   * older epoch may still complete for its joined callers, but it can no
-   * longer publish an optimized generation token into the cleared map.
-   */
-  #metadataInvalidationEpoch = 0;
   readonly #metadataRefreshRetirement = new AbortController();
   #metadataRefreshOperation?: MetadataRefreshOperation;
   readonly #contexts: SessionContextRuntime<
@@ -2404,7 +2398,6 @@ export class DirectDestinationOwner {
    */
   invalidateMetadata(): number {
     if (this.#state !== "active") return 0;
-    this.#metadataInvalidationEpoch += 1;
     this.#optimizedGenerationTokens.clear();
     return this.#repository.invalidateAll();
   }
@@ -2545,7 +2538,7 @@ export class DirectDestinationOwner {
   }
 
   async #loadMetadata(
-    context: MetadataAccessContext,
+    context: MetadataLoadContext,
   ): Promise<MetadataSnapshot<DestinationMetadataDescriptor>> {
     let value: DestinationMetadataDescriptor;
     let generationToken: string | undefined;
@@ -2561,8 +2554,7 @@ export class DirectDestinationOwner {
       objectKind,
       context.structural.objectName,
     );
-    const invalidationEpoch = this.#metadataInvalidationEpoch;
-    if (context.strategy !== MetadataLoadStrategy.Optimized) {
+    if (context.strategy !== MetadataLoadStrategy.Optimized && context.isCurrent()) {
       // A classic or legacy fallback must never inherit a token from an older
       // optimized descriptor for the same structural key.
       this.#optimizedGenerationTokens.delete(generationKey);
@@ -2650,24 +2642,24 @@ export class DirectDestinationOwner {
       throw error;
     }
     const snapshot = metadataSnapshot(value);
+    const current = context.isCurrent();
     if (context.strategy === MetadataLoadStrategy.Optimized) {
       if (generationToken === undefined) {
-        this.#optimizedGenerationTokens.delete(generationKey);
-        this.#optimizedDescriptorTokens.delete(value.value);
+        if (current) {
+          this.#optimizedGenerationTokens.delete(generationKey);
+          this.#optimizedDescriptorTokens.delete(value.value);
+        }
       } else {
         const canonicalToken = canonicalOptimizedGenerationToken(
           generationToken,
           objectKind,
         );
         this.#optimizedDescriptorTokens.set(value.value, canonicalToken);
-        // invalidateMetadata() may have run while this load was in flight. The
-        // repository already refuses to cache it; keep its generation record
-        // out of the cleared map so a later refresh cannot act on it.
-        if (invalidationEpoch === this.#metadataInvalidationEpoch) {
-          this.#rememberOptimizedGeneration(context.structural, generationToken);
-        }
+        // Joined callers still need this descriptor's own token to compare
+        // flat and recursive metadata. Only the current load owns the map.
+        if (current) this.#rememberOptimizedGeneration(context.structural, generationToken);
       }
-    } else {
+    } else if (current) {
       this.#optimizedDescriptorTokens.delete(value.value);
     }
     return snapshot;
