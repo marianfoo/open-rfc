@@ -767,6 +767,7 @@ const INITIAL_CPIC_RICH_RFCPING_PREAMBLE_GRAMMAR:
     { tag: CpicTag.SystemCodePage, byteLength: 8 },
     { tag: INITIAL_CPIC_UNRESOLVED_0450, byteLength: 6, optional: true },
     { tag: 0x0451, byteLength: 20, optional: true },
+    { tag: 0x0454, byteLength: 36, optional: true },
     { tag: 0x0452, byteLength: 4, optional: true },
     {
       tag: 0x0453,
@@ -802,6 +803,7 @@ const INITIAL_CPIC_RICH_RFCPING_PREAMBLE_GRAMMAR:
     { tag: 0x0150, byteLength: 24 },
     { tag: 0x0151, byteLength: 6 },
     { tag: 0x0152, byteLength: 2 },
+    { tag: 0x0527, byteLength: 4, optional: true },
   ]);
 
 /**
@@ -1825,9 +1827,15 @@ export function encodeCpicCutFunctionRequest(
 }
 
 function decodeCpicFunctionResponseEnvelope(
-  data: Uint8Array,
+  packet: Uint8Array,
   additionalAllowedTags: readonly number[] = [],
 ): DecodedCpicFunctionResultFields {
+  // Kernel 9.16 can prepend one framed 0x0527 control. Its payload is opaque;
+  // the regular prefix and the entire remaining envelope are still required.
+  const lead = packet.subarray(0, 10);
+  const hasLead = lead.length === 10 && lead[0] === 0x05 && lead[1] === 0x27 &&
+    lead[2] === 0 && lead[3] === 4 && lead[8] === 0x05 && lead[9] === 0x27;
+  const data = hasLead ? packet.subarray(10) : packet;
   if (data.byteLength < CPIC_FUNCTION_RESPONSE_PREFIX.byteLength + 8) {
     throw new RangeError("CPIC function response is truncated");
   }

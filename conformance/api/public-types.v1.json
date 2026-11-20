@@ -52,8 +52,8 @@
     },
     {
       "path": "dist/src/client/direct-cpic-session.d.ts",
-      "bytes": 9899,
-      "sha256": "2ef89cd701de5c1fad55bb88e6acdb888d183fd1bbdf2d7a4d0ee18720d762d8"
+      "bytes": 10016,
+      "sha256": "6716fadf5c2337bd8d79de523e8bf1184657c227654ce58fb3f2114d9273daa8"
     },
     {
       "path": "dist/src/client/rfc-errors.d.ts",
@@ -396,5 +396,5 @@
       "sha256": "3f7281a9719647b7faeb0c15cd021310eb4ddec4269c379380813dd129db7859"
     }
   ],
-  "aggregateSha256": "3c861269553fbc8948c52982ebb6e0bcb2c3be084d587feb0897c6bf6bcdc763"
+  "aggregateSha256": "99c945ec6dbfb962d7b28dc1bf02fea2c6dcbbf846e1a1e17c4236a23eb6a78c"
 }

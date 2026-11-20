@@ -18,7 +18,7 @@ function end(): CpicField {
   return { tag: CpicTag.End, value: Buffer.alloc(0) };
 }
 
-function emptyFunctionMetadata(): readonly CpicField[] {
+function emptyFunctionMetadata(basxml = false): readonly CpicField[] {
   return [
     { tag: CpicTag.ResponseContext, value: Buffer.alloc(0) },
     { tag: CpicTag.Session, value: Buffer.alloc(16, 1) },
@@ -28,7 +28,7 @@ function emptyFunctionMetadata(): readonly CpicField[] {
       tag: CpicTag.ParameterName,
       value: Buffer.from("REMOTE_BASXML_SUPPORTED", "utf16le"),
     },
-    { tag: CpicTag.ParameterValue, value: Buffer.from(" ", "utf16le") },
+    { tag: CpicTag.ParameterValue, value: Buffer.from(basxml ? "X" : " ", "utf16le") },
     {
       tag: CpicTag.ParameterName,
       value: Buffer.from("REMOTE_CALL", "utf16le"),
@@ -80,6 +80,29 @@ async function rejectedCall(client: Client): Promise<RFCError> {
   }
   assert.fail("expected the RFC call to reject");
 }
+
+test("invalidateMetadata rereads the interface on the same physical repository session", async (t) => {
+  const peer = await ScriptedRfcPeer.start([{}, { replies: [
+    { kind: "fields", fields: emptyFunctionMetadata() },
+    { kind: "fields", fields: emptyFunctionMetadata(true) },
+  ] }]);
+  t.after(() => peer.close());
+  const client = clientFor(peer);
+  await client.open();
+  try {
+    const lookup = () => client.getFunctionInterface("Z_CHANGED");
+    const before = await lookup();
+    assert.equal(before.remoteBasxmlSupported, false);
+    assert.equal(await lookup(), before);
+    client.invalidateMetadata();
+    assert.equal(peer.regularRequestCount(1), 1);
+    assert.equal((await lookup()).remoteBasxmlSupported, true);
+    assert.equal(peer.regularRequestCount(1), 2);
+    assert.equal(peer.connectionCount, 2);
+  } finally {
+    await client.close();
+  }
+});
 
 test("compat Client maps rejected and malformed initial logon exactly", async (t) => {
   const cases = [

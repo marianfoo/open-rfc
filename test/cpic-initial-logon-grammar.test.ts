@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Client } from "../src/compat/node-rfc-client.js";
+import { ScriptedRfcPeer, successfulRegularFields } from "./support/scripted-rfc-peer.js";
 
 import {
   CpicTag,
+  decodeCpicFunctionResponse,
   decodeCpicInitialLogonResponse,
   encodeCpicFieldChain,
   type CpicField,
@@ -109,6 +112,71 @@ const composite = (
   preambleOptions?: PreambleOptions,
   responseOptions?: { control?: boolean; program?: number },
 ): CpicField[] => [...preamble(preambleOptions), ...embeddedResponse(responseOptions)];
+
+function kernel916Logon(width454 = 36, width527 = 4): CpicField[] {
+  return composite().flatMap((f) => {
+    if (f.tag === 0x0451) return [f, field(0x0454, width454)];
+    if (f.tag === 0x0152) return [f, field(0x0527, width527)];
+    return [f];
+  });
+}
+
+const lead = Buffer.from("05270004abcd12340527", "hex");
+function ordinaryReply(): Buffer {
+  return Buffer.concat([
+    Buffer.from("05000000", "hex"),
+    encodeCpicFieldChain(CpicTag.ResponseStart, successfulRegularFields()),
+    TRAILER,
+  ]);
+}
+
+test("kernel 9.16 initial controls have exact widths and positions", () => {
+  const fields = kernel916Logon();
+  assert.equal(decodeCpicInitialLogonResponse(response(fields)).success, true);
+  for (const bad of [
+    kernel916Logon(35),
+    kernel916Logon(36, 5),
+    [...fields, field(0x0527, 4)],
+    [field(0x0454, 36), ...composite()],
+    fields.flatMap((f) => f.tag === 0x0527 ? [f, f] : [f]),
+  ]) {
+    assert.throws(() => decodeCpicInitialLogonResponse(response(bad)));
+  }
+});
+
+test("kernel 9.16 ordinary responses allow exactly one framed four-byte control", () => {
+  const reply = ordinaryReply();
+  assert.deepEqual(decodeCpicFunctionResponse(Buffer.concat([lead, reply])),
+    decodeCpicFunctionResponse(reply));
+  for (const bad of ["05270003abcd12340527", "05270004abcd12340528",
+    "05280004abcd12340528", "05270004abcd", lead.toString("hex").repeat(2)]) {
+    assert.throws(() => decodeCpicFunctionResponse(Buffer.concat([Buffer.from(bad, "hex"), reply])));
+  }
+  assert.throws(() => decodeCpicFunctionResponse(Buffer.concat([lead, reply.subarray(0, -1)])));
+});
+
+test("Client opens and pings a scripted kernel 9.16 peer", async (t) => {
+  const peer = await ScriptedRfcPeer.start([{
+    logonResponse: response(kernel916Logon()),
+    replies: [{ kind: "raw", data: Buffer.concat([lead, ordinaryReply()]) }],
+  }]);
+  t.after(() => peer.close());
+  const client = new Client({
+    ashost: "application.example.test",
+    gwhost: "127.0.0.1",
+    gwserv: String(peer.port),
+    sysnr: "00",
+    client: "001",
+    user: "RFCUSR",
+    passwd: "synthetic",
+  });
+  await client.open();
+  try {
+    assert.equal(await client.ping(), true);
+  } finally {
+    await client.close();
+  }
+});
 
 /**
  * Every graph the retired allowlist enumerated, retyped from its recorded
