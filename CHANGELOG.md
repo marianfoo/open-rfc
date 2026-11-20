@@ -17,6 +17,15 @@ that surface is released.
   so unsupported RFC-proxy requests fail closed instead of silently selecting a
   direct connection.
 
+## [0.2.6](https://github.com/marianfoo/open-rfc/compare/v0.2.5...v0.2.6) (2026-11-20)
+
+
+### Bug Fixes
+
+* accept kernel 9.16 replies and reload invalidated session metadata ([#52](https://github.com/marianfoo/open-rfc/issues/52)) ([4a257ce](https://github.com/marianfoo/open-rfc/commit/4a257cecaa618351232a69c1c1766de04f3fc86c))
+* decode space-filled xRFC dates and times ([#47](https://github.com/marianfoo/open-rfc/issues/47)) ([ba97e8a](https://github.com/marianfoo/open-rfc/commit/ba97e8a6dc3cce58866f4750d212aeffb2b635d3))
+* refresh cached metadata after backend signature changes ([#49](https://github.com/marianfoo/open-rfc/issues/49)) ([76ccf9f](https://github.com/marianfoo/open-rfc/commit/76ccf9f8744e3590e603490224443b4142d9d4d9))
+
 ## [0.2.5](https://github.com/marianfoo/open-rfc/compare/v0.2.4...v0.2.5) (2026-10-14)
 
 
