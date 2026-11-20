@@ -6,8 +6,10 @@ import { bindClientDestinationOwnerFactory } from
   "../src/compat/node-rfc-client.js";
 import { bindPoolDestinationOwnerFactory } from
   "../src/compat/node-rfc-pool.js";
-import type { DirectCompatibilityOwnerFactoryContext } from
-  "../src/compat/direct-owner-factory.js";
+import {
+  productionDirectCompatibilityOwnerFactory,
+  type DirectCompatibilityOwnerFactoryContext,
+} from "../src/compat/direct-owner-factory.js";
 import type { DirectDestinationOwner } from
   "../src/destination/direct-destination-owner.js";
 
@@ -217,4 +219,130 @@ test("prevents application lifecycle calls on managed clients", async () => {
     managed.close() as Promise<void>,
     /managed clients cannot be closed directly/,
   );
+});
+
+test("Client.invalidateMetadata makes the next call use a changed function signature", async () => {
+  let withTest = false;
+  let functionLoads = 0;
+  const invokedSignatures: string[][] = [];
+  const parameter = (name: string, position: number) => Object.freeze({
+    parameterClass: "I",
+    parameterName: name,
+    tableName: "",
+    fieldName: "",
+    exid: "C",
+    position,
+    offset: 0,
+    internalLength: 1,
+    decimals: 0,
+    defaultValue: "",
+    parameterText: "",
+    optional: true,
+  });
+  const sessionFactory = {
+    open() {
+      return {
+        info: Object.freeze({
+          localAddress: "127.0.0.1",
+          peerCodePage: "4103",
+          peerAcceptInfo: 0,
+          generationHandle: 1,
+          connectionIndex: 1,
+        }),
+        async ping() { return Object.freeze({}); },
+        async close() {},
+        async resetServerContext() {},
+        async getFunctionInterface(name: string) {
+          functionLoads += 1;
+          return Object.freeze({
+            name,
+            remoteBasxmlSupported: false,
+            remoteCall: "R",
+            updateTask: false,
+            parameters: Object.freeze(withTest
+              ? [parameter("TRKORR", 1), parameter("TEST", 2)]
+              : [parameter("TRKORR", 1)]),
+            exceptions: Object.freeze([]),
+            resumableExceptionRowCount: 0,
+          });
+        },
+        async getStructureDefinition() { throw new Error("unexpected structure"); },
+        async getLegacyStructureDefinition() { throw new Error("unexpected structure"); },
+        async invokeClassicWithMetadata(metadata: {
+          readonly parameters: readonly { readonly parameterName: string }[];
+        }) {
+          invokedSignatures.push(
+            metadata.parameters.map((p) => p.parameterName),
+          );
+          return Object.freeze({});
+        },
+      };
+    },
+  };
+  const restore = bindClientDestinationOwnerFactory({
+    create(context) {
+      return productionDirectCompatibilityOwnerFactory.create({
+        ...context,
+        sessionFactory: sessionFactory as never,
+      });
+    },
+  });
+  const client = new Client(configuration.connectionParameters);
+  try {
+    // Closed and never-opened clients have no cache: a best-effort no-op.
+    assert.equal(client.invalidateMetadata(), undefined);
+    await client.open();
+    const before = await client.getFunctionInterface("Z_IMPORT_TR");
+    assert.deepEqual(before.parameters.map((p) => p.parameterName), ["TRKORR"]);
+    await client.call("Z_IMPORT_TR", { TRKORR: "A" });
+
+    // The SAP signature changes; the cached interface still lacks TEST.
+    withTest = true;
+    await client.call("Z_IMPORT_TR", { TRKORR: "A" });
+    assert.equal(functionLoads, 1);
+
+    client.invalidateMetadata();
+    await client.call("Z_IMPORT_TR", { TRKORR: "A", TEST: "X" });
+    assert.equal(functionLoads, 2);
+    assert.deepEqual(invokedSignatures, [
+      ["TRKORR"],
+      ["TRKORR"],
+      ["TRKORR", "TEST"],
+    ]);
+    const after = await client.getFunctionInterface("Z_IMPORT_TR");
+    assert.deepEqual(after.parameters.map((p) => p.parameterName), ["TRKORR", "TEST"]);
+    assert.equal(functionLoads, 2);
+  } finally {
+    await client.close();
+    restore();
+  }
+  assert.equal(client.invalidateMetadata(), undefined);
+});
+
+test("Pool.invalidateMetadata clears the shared owner cache and is inert before connecting or after close", async () => {
+  let invalidations = 0;
+  const owner = Object.assign(routedOwnerDouble(), {
+    invalidateMetadata() {
+      invalidations += 1;
+      return 0;
+    },
+  });
+  const restore = bindPoolDestinationOwnerFactory({ create: () => owner });
+  const pool = new Pool(configuration);
+  try {
+    pool.invalidateMetadata();
+    assert.equal(invalidations, 0);
+    const client = await pool.acquire() as Client;
+    pool.invalidateMetadata();
+    assert.equal(invalidations, 1);
+    client.invalidateMetadata();
+    assert.equal(invalidations, 2);
+    await pool.release(client);
+    // A released wrapper no longer reaches the pool's owner.
+    client.invalidateMetadata();
+    assert.equal(invalidations, 2);
+  } finally {
+    await pool.closeAll();
+    restore();
+  }
 });

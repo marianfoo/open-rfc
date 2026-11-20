@@ -52,7 +52,7 @@ import {
   MetadataLoadStrategy,
   MetadataRepositoryMode,
   MetadataRepositoryRuntime,
-  type MetadataAccessContext,
+  type MetadataLoadContext,
   type MetadataRepositoryMonitor,
   type MetadataSnapshot,
   type MetadataStructuralKey,
@@ -2382,6 +2382,26 @@ export class DirectDestinationOwner {
     return waitForMetadataRefreshCaller(pending, caller);
   }
 
+  /**
+   * Drop every cached function, recursive-function, and structure descriptor
+   * together with the optimized generation tokens that describe them, so the
+   * next lookup re-reads the interface from SAP. This is the explicit,
+   * caller-chosen equivalent of the SDK's repository clear; there is no
+   * background I/O.
+   *
+   * Loads already in flight keep serving the callers that joined them, but
+   * their results are never published into the cleared cache, and later
+   * lookups start a fresh load. A pending timestamp refresh cannot invalidate
+   * a descriptor loaded after this call. Returns the number of cached
+   * descriptors removed; a retiring or retired owner has nothing left to clear
+   * and returns 0.
+   */
+  invalidateMetadata(): number {
+    if (this.#state !== "active") return 0;
+    this.#optimizedGenerationTokens.clear();
+    return this.#repository.invalidateAll();
+  }
+
   retire(): Promise<void> {
     if (this.#retirement !== undefined) return this.#retirement;
     this.#state = "retiring";
@@ -2518,7 +2538,7 @@ export class DirectDestinationOwner {
   }
 
   async #loadMetadata(
-    context: MetadataAccessContext,
+    context: MetadataLoadContext,
   ): Promise<MetadataSnapshot<DestinationMetadataDescriptor>> {
     let value: DestinationMetadataDescriptor;
     let generationToken: string | undefined;
@@ -2534,7 +2554,7 @@ export class DirectDestinationOwner {
       objectKind,
       context.structural.objectName,
     );
-    if (context.strategy !== MetadataLoadStrategy.Optimized) {
+    if (context.strategy !== MetadataLoadStrategy.Optimized && context.isCurrent()) {
       // A classic or legacy fallback must never inherit a token from an older
       // optimized descriptor for the same structural key.
       this.#optimizedGenerationTokens.delete(generationKey);
@@ -2622,19 +2642,24 @@ export class DirectDestinationOwner {
       throw error;
     }
     const snapshot = metadataSnapshot(value);
+    const current = context.isCurrent();
     if (context.strategy === MetadataLoadStrategy.Optimized) {
       if (generationToken === undefined) {
-        this.#optimizedGenerationTokens.delete(generationKey);
-        this.#optimizedDescriptorTokens.delete(value.value);
+        if (current) {
+          this.#optimizedGenerationTokens.delete(generationKey);
+          this.#optimizedDescriptorTokens.delete(value.value);
+        }
       } else {
         const canonicalToken = canonicalOptimizedGenerationToken(
           generationToken,
           objectKind,
         );
         this.#optimizedDescriptorTokens.set(value.value, canonicalToken);
-        this.#rememberOptimizedGeneration(context.structural, generationToken);
+        // Joined callers still need this descriptor's own token to compare
+        // flat and recursive metadata. Only the current load owns the map.
+        if (current) this.#rememberOptimizedGeneration(context.structural, generationToken);
       }
-    } else {
+    } else if (current) {
       this.#optimizedDescriptorTokens.delete(value.value);
     }
     return snapshot;

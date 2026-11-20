@@ -111,11 +111,16 @@ export interface MetadataAccessContext {
   readonly signal: AbortSignal;
 }
 
+export interface MetadataLoadContext extends MetadataAccessContext {
+  /** Whether this load may still publish shared state for its admission epoch. */
+  readonly isCurrent: () => boolean;
+}
+
 /** Transport-independent adapter implemented later by a destination/session lane. */
 export interface MetadataAdapter<T extends object> {
   probeOptimized(context: MetadataProbeContext): Promise<void>;
   authorize(context: MetadataAccessContext): Promise<void>;
-  load(context: MetadataAccessContext): Promise<MetadataSnapshot<T>>;
+  load(context: MetadataLoadContext): Promise<MetadataSnapshot<T>>;
 }
 
 export interface MetadataRepositoryRuntimeOptions<T extends object> {
@@ -207,7 +212,7 @@ interface BoundMetadataAdapter<T extends object> {
   readonly probeOptimized: (context: MetadataProbeContext) => Promise<void>;
   readonly authorize: (context: MetadataAccessContext) => Promise<void>;
   readonly load: (
-    context: MetadataAccessContext,
+    context: MetadataLoadContext,
   ) => Promise<MetadataSnapshot<T>>;
 }
 
@@ -396,7 +401,7 @@ function bindMetadataAdapter<T extends object>(
       Reflect.apply(probeOptimized, adapter, [context]),
     authorize: (context: MetadataAccessContext): Promise<void> =>
       Reflect.apply(authorize, adapter, [context]),
-    load: (context: MetadataAccessContext): Promise<MetadataSnapshot<T>> =>
+    load: (context: MetadataLoadContext): Promise<MetadataSnapshot<T>> =>
       Reflect.apply(load, adapter, [context]),
   });
 }
@@ -1206,7 +1211,9 @@ export class MetadataRepositoryRuntime<T extends object> {
       throw capacityError("load", this.#maxInFlightLoads);
     }
 
-    const context: MetadataAccessContext = Object.freeze({
+    const context: MetadataLoadContext = Object.freeze({
+      isCurrent: () => this.#state === "active" &&
+        this.#epochMatches(lookup.structural.id, admissionEpoch),
       structural: lookup.structural,
       capability: lookup.capability,
       mode: lookup.mode,
@@ -1226,10 +1233,7 @@ export class MetadataRepositoryRuntime<T extends object> {
           this.#maxSnapshotProperties,
         );
         this.#loadsSucceeded += 1;
-        if (
-          this.#state === "active" &&
-          this.#epochMatches(lookup.structural.id, admissionEpoch)
-        ) {
+        if (context.isCurrent()) {
           return this.#cacheSnapshot(lookup.structural, snapshot);
         }
         return snapshot.value;
